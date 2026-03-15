@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import bcrypt from "bcryptjs";
-import prisma from "@/lib/prisma";
+import { userData } from "@/lib/data/user.data";
 import { signupSchema } from "@/lib/validations/auth";
 import { createSession } from "@/lib/auth";
 import { ok, err } from "@/lib/response";
@@ -10,8 +10,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const input = signupSchema.parse(body);
 
-    const existing = await prisma.user.findFirst({
-      where: { OR: [{ username: input.username }, { email: input.email }] },
+    const existing = await userData.find({
+      OR: [{ username: input.username }, { email: input.email }],
     });
     if (existing) {
       const field = existing.username === input.username ? "username" : "email";
@@ -19,13 +19,11 @@ export async function POST(request: NextRequest) {
     }
 
     const hashedPassword = await bcrypt.hash(input.password, 12);
-    const user = await prisma.user.create({
-      data: {
-        fullName: input.fullName,
-        username: input.username,
-        email: input.email,
-        password: hashedPassword,
-      },
+    const user = await userData.create({
+      fullName: input.fullName,
+      username: input.username,
+      email: input.email,
+      password: hashedPassword,
     });
 
     const authToken = await createSession(user.id);

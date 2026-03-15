@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { userSessionData } from "@/lib/data/user-session.data";
 
 export interface SessionUser {
   userId: number;
@@ -9,8 +9,9 @@ export interface SessionUser {
 
 export async function createSession(userId: number): Promise<string> {
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-  const session = await prisma.userSession.create({
-    data: { userId, expiresAt },
+  const session = await userSessionData.create({
+    user: { connect: { id: userId } },
+    expiresAt,
   });
   return session.authToken;
 }
@@ -18,27 +19,28 @@ export async function createSession(userId: number): Promise<string> {
 export async function validateSession(
   authToken: string
 ): Promise<SessionUser | null> {
-  const session = await prisma.userSession.findUnique({
-    where: { authToken },
-    include: { user: { select: { id: true, userId: true, username: true } } },
-  });
+  const session = await userSessionData.findUnique(
+    { authToken },
+    { user: { select: { id: true, userId: true, username: true } } }
+  );
 
   if (!session || session.expiresAt < new Date()) {
     if (session) {
-      await prisma.userSession.delete({ where: { id: session.id } });
+      await userSessionData.delete({ id: session.id });
     }
     return null;
   }
 
+  const user = (session as any).user;
   return {
-    userId: session.user.id,
-    userUuid: session.user.userId,
-    username: session.user.username,
+    userId: user.id,
+    userUuid: user.userId,
+    username: user.username,
   };
 }
 
 export async function deleteSession(authToken: string): Promise<void> {
-  await prisma.userSession.deleteMany({ where: { authToken } });
+  await userSessionData.deleteMany({ authToken });
 }
 
 export async function authenticateRequest(

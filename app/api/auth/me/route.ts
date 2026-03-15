@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { userData } from "@/lib/data/user.data";
 import { authenticateRequest } from "@/lib/auth";
 import { ok, err } from "@/lib/response";
 
@@ -8,10 +8,10 @@ export async function GET(request: NextRequest) {
     const auth = await authenticateRequest(request);
     if (auth instanceof NextResponse) return auth;
 
-    const user = await prisma.user.findUnique({
-      where: { id: auth.userId, isActive: true },
-      select: { userId: true, fullName: true, username: true, email: true },
-    });
+    const user = await userData.find(
+      { id: auth.userId, isActive: true },
+      { userId: true, fullName: true, username: true, email: true }
+    );
 
     if (!user) {
       return err("User not found", "No user with that id", 404);

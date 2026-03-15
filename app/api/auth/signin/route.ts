@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import bcrypt from "bcryptjs";
-import prisma from "@/lib/prisma";
+import { userData } from "@/lib/data/user.data";
 import { signinSchema } from "@/lib/validations/auth";
 import { createSession } from "@/lib/auth";
 import { ok, err } from "@/lib/response";
@@ -10,11 +10,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const input = signinSchema.parse(body);
 
-    const user = await prisma.user.findFirst({
-      where: {
-        OR: [{ username: input.login }, { email: input.login }],
-        isActive: true,
-      },
+    const user = await userData.find({
+      OR: [{ username: input.login }, { email: input.login }],
+      isActive: true,
     });
 
     if (!user) {
