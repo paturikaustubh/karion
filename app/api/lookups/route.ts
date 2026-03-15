@@ -10,8 +10,8 @@ export async function GET() {
 
     return NextResponse.json({
       data: {
-        statuses: statuses.map((s) => ({ value: s.statusName, label: s.displayName })),
-        priorities: priorities.map((p) => ({ value: p.severityName, label: p.displayName })),
+        statuses: statuses.map((s: { statusName: string; displayName: string }) => ({ value: s.statusName, label: s.displayName })),
+        priorities: priorities.map((p: { severityName: string; displayName: string }) => ({ value: p.severityName, label: p.displayName })),
       },
     });
   } catch (error) {
