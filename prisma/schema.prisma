@@ -1,0 +1,214 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+}
+
+// ─── Lookup Tables (static / seed data) ──────────────────────────────────────
+
+model Source {
+  id          Int    @id @default(autoincrement())
+  sourceName  String @unique
+  displayName String
+
+  tasks    Task[]
+  comments TaskComment[]
+
+  @@map("sources")
+}
+
+model TaskStatus {
+  id          Int    @id @default(autoincrement())
+  statusName  String @unique
+  displayName String
+
+  tasks Task[]
+
+  @@map("task_statuses")
+}
+
+model TaskSeverity {
+  id           Int    @id @default(autoincrement())
+  severityName String @unique
+  displayName  String
+
+  tasks Task[]
+
+  @@map("task_severities")
+}
+
+// ─── Core Models ──────────────────────────────────────────────────────────────
+
+model User {
+  id             Int      @id @default(autoincrement())
+  userId         String   @unique @default(uuid())
+  fullName       String
+  username       String   @unique
+  email          String   @unique
+  password       String
+  telegramChatId String?  @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  isActive       Boolean  @default(true)
+
+  tasks         Task[]
+  comments      TaskComment[]
+  timeSessions  TaskSession[]
+  activities    TaskActivity[]
+  reports       Report[]
+  reportConfig  ReportConfig?
+  sessions      UserSession[]
+
+  @@map("users")
+}
+
+model Task {
+  id               Int      @id @default(autoincrement())
+  taskId           String   @unique @default(uuid())
+  taskName         String   @db.VarChar(100)
+  description      String?
+  creationSourceId Int
+  taskStatusId     Int
+  taskSeverityId   Int
+  dueDate          DateTime?
+  totalWorkTime    Int      @default(0) // seconds, updated on session stop
+  createdBy        Int
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  isActive         Boolean  @default(true)
+
+  creationSource Source       @relation(fields: [creationSourceId], references: [id])
+  taskStatus     TaskStatus   @relation(fields: [taskStatusId], references: [id])
+  taskSeverity   TaskSeverity @relation(fields: [taskSeverityId], references: [id])
+  creator        User         @relation(fields: [createdBy], references: [id])
+  comments       TaskComment[]
+  timeSessions   TaskSession[]
+  activities     TaskActivity[]
+
+  @@index([taskStatusId])
+  @@index([taskSeverityId])
+  @@index([createdBy])
+  @@index([createdAt])
+  @@index([isActive])
+  @@map("tasks")
+}
+
+model TaskComment {
+  id              Int      @id @default(autoincrement())
+  taskCommentId   String   @unique @default(uuid())
+  taskId          Int
+  comment         String
+  commentSourceId Int
+  createdBy       Int
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  isActive        Boolean  @default(true)
+
+  task          Task   @relation(fields: [taskId], references: [id])
+  commentSource Source @relation(fields: [commentSourceId], references: [id])
+  creator       User   @relation(fields: [createdBy], references: [id])
+
+  @@index([taskId])
+  @@index([createdBy])
+  @@index([createdAt])
+  @@map("task_comments")
+}
+
+model TaskSession {
+  id            Int      @id @default(autoincrement())
+  taskSessionId String   @unique @default(uuid())
+  taskId        Int
+  startTime     DateTime @default(now())
+  endTime       DateTime?
+  duration      Int?     // seconds, calculated and stored when session ends
+  activeSession Boolean  @default(true)
+  createdBy     Int
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  isActive      Boolean  @default(true)
+
+  task    Task @relation(fields: [taskId], references: [id])
+  creator User @relation(fields: [createdBy], references: [id])
+
+  @@index([taskId])
+  @@index([activeSession])
+  @@index([startTime])
+  @@index([createdBy])
+  @@map("task_sessions")
+}
+
+model TaskActivity {
+  id             Int      @id @default(autoincrement())
+  taskActivityId String   @unique @default(uuid())
+  taskId         Int?
+  activityType   String   // task_created, task_updated, task_status_changed, task_completed, task_deleted, comment_added, comment_updated, comment_deleted, time_started, time_stopped, report_generated
+  description    String
+  metadata       Json?
+  createdBy      Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  isActive       Boolean  @default(true)
+
+  task    Task? @relation(fields: [taskId], references: [id])
+  creator User  @relation(fields: [createdBy], references: [id])
+
+  @@index([taskId])
+  @@index([activityType])
+  @@index([createdAt])
+  @@index([createdBy])
+  @@map("task_activities")
+}
+
+model Report {
+  id             Int      @id @default(autoincrement())
+  reportId       String   @unique @default(uuid())
+  reportDate     DateTime @unique @db.Date
+  content        String   // AI-generated markdown
+  structuredData Json?    // raw data snapshot passed to AI, useful for regeneration
+  generatedAt    DateTime @default(now())
+  createdBy      Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  isActive       Boolean  @default(true)
+
+  creator User @relation(fields: [createdBy], references: [id])
+
+  @@index([reportDate])
+  @@index([createdBy])
+  @@map("reports")
+}
+
+model ReportConfig {
+  id             Int      @id @default(autoincrement())
+  reportConfigId String   @unique @default(uuid())
+  frequency      String   // none, daily, weekly, monthly
+  scheduledTime  String?  // HH:mm in UTC, FE converts local time before sending
+  datesDays      Json?    // weekly: ["Mo","Tu","Fr"] / monthly: ["1","15"] / null otherwise
+  createdBy      Int      @unique // singleton per user
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  isActive       Boolean  @default(true)
+
+  creator User @relation(fields: [createdBy], references: [id])
+
+  @@map("report_configs")
+}
+
+// ─── Auth Sessions ───────────────────────────────────────────────────────────
+
+model UserSession {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  authToken String   @unique @default(uuid())
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([authToken])
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("user_sessions")
+}
