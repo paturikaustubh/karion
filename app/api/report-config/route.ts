@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Prisma } from "@prisma/client";
 import { reportConfigData } from "@/lib/data/report-config.data";
 import { authenticateRequest } from "@/lib/auth";
 import { reportConfigSchema } from "@/lib/validations/report-config";
@@ -42,13 +41,13 @@ export async function PUT(request: NextRequest) {
       {
         frequency: input.frequency,
         scheduledTime: input.scheduledTime ?? null,
-        datesDays: input.datesDays != null ? (input.datesDays as Prisma.InputJsonValue) : Prisma.DbNull,
+        ...(input.datesDays != null ? { datesDays: input.datesDays } : {}),
         creator: { connect: { id: auth.userId } },
       },
       {
         frequency: input.frequency,
         scheduledTime: input.scheduledTime ?? null,
-        datesDays: input.datesDays != null ? (input.datesDays as Prisma.InputJsonValue) : Prisma.DbNull,
+        ...(input.datesDays != null ? { datesDays: input.datesDays } : {}),
       }
     );
 

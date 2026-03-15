@@ -169,7 +169,7 @@ function TasksContent() {
 
         <div className="flex items-center gap-2">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[130px]">
+            <SelectTrigger className="w-32.5">
               <Funnel className="mr-2 h-3.5 w-3.5" />
               <SelectValue placeholder="Status" />
             </SelectTrigger>
@@ -182,7 +182,7 @@ function TasksContent() {
           </Select>
 
           <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="w-[130px]">
+            <SelectTrigger className="w-32.5">
               <SelectValue placeholder="Priority" />
             </SelectTrigger>
             <SelectContent>

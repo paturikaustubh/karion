@@ -24,7 +24,7 @@ interface AnalyticsData {
 }
 
 interface ActivityItem {
-  id: string;
+  taskActivityId: string;
   activityType: string;
   description: string;
   createdAt: string;
@@ -176,7 +176,7 @@ export default function DashboardPage() {
             <div className="space-y-3">
               {activities.map((activity) => (
                 <div
-                  key={activity.id}
+                  key={activity.taskActivityId}
                   className="flex items-start gap-3 text-sm"
                 >
                   <div className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />

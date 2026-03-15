@@ -428,7 +428,7 @@ export default function TaskDetailPage({
                   if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) addComment();
                 }}
                 rows={2}
-                className="flex-1 min-h-[60px] resize-none"
+                className="flex-1 min-h-15 resize-none"
               />
               <Button
                 size="icon"
