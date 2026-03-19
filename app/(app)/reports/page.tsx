@@ -273,9 +273,22 @@ function ReportsContent() {
 
       {/* Report List */}
       {loading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-16 rounded-xl" />
+        <div className="space-y-6">
+          {[1, 2].map((group) => (
+            <div key={group} className="space-y-2">
+              <Skeleton className="h-3.5 w-24 rounded" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="rounded-xl border bg-card p-4 flex items-center gap-3">
+                    <Skeleton className="h-9 w-9 rounded-lg shrink-0" />
+                    <div className="flex-1 space-y-1.5">
+                      <Skeleton className="h-3.5 w-3/4 rounded" />
+                      <Skeleton className="h-3 w-1/2 rounded" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       ) : reports.length === 0 ? (
@@ -294,28 +307,30 @@ function ReportsContent() {
             <h3 className="text-sm font-semibold text-muted-foreground">
               {month}
             </h3>
-            {monthReports.map((report) => (
-              <Link
-                key={report.reportDate}
-                href={`/reports/${format(parseISO(report.reportDate), "yyyy-MM-dd")}`}
-              >
-                <Card className="group cursor-pointer transition-all hover:shadow-md hover:border-primary/20 p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                      <CalendarBlank className="h-4 w-4 text-primary" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {monthReports.map((report) => (
+                <Link
+                  key={report.reportDate}
+                  href={`/reports/${format(parseISO(report.reportDate), "yyyy-MM-dd")}`}
+                >
+                  <Card className="group cursor-pointer transition-all hover:shadow-md hover:border-primary/20 p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                        <CalendarBlank className="h-4 w-4 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium group-hover:text-primary transition-colors">
+                          {format(parseISO(report.reportDate), "EEEE, MMMM d, yyyy")}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Generated {format(new Date(report.generatedAt), "MMM d, HH:mm")}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium group-hover:text-primary transition-colors">
-                        {format(parseISO(report.reportDate), "EEEE, MMMM d, yyyy")}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Generated {format(new Date(report.generatedAt), "MMM d, HH:mm")}
-                      </p>
-                    </div>
-                  </div>
-                </Card>
-              </Link>
-            ))}
+                  </Card>
+                </Link>
+              ))}
+            </div>
           </div>
         ))
       )}
@@ -325,7 +340,24 @@ function ReportsContent() {
 
 export default function ReportsPage() {
   return (
-    <Suspense fallback={<div className="space-y-3"><Skeleton className="h-16 rounded-xl" /><Skeleton className="h-16 rounded-xl" /></div>}>
+    <Suspense
+      fallback={
+        <div className="space-y-2">
+          <Skeleton className="h-3.5 w-24 rounded" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="rounded-xl border bg-card p-4 flex items-center gap-3">
+                <Skeleton className="h-9 w-9 rounded-lg shrink-0" />
+                <div className="flex-1 space-y-1.5">
+                  <Skeleton className="h-3.5 w-3/4 rounded" />
+                  <Skeleton className="h-3 w-1/2 rounded" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      }
+    >
       <ReportsContent />
     </Suspense>
   );

@@ -22,6 +22,7 @@ interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
   isAuthenticated: boolean;
+  signIn: (user: AuthUser) => void;
   signOut: () => Promise<void>;
 }
 
@@ -29,6 +30,7 @@ const AuthContext = createContext<AuthContextValue>({
   user: null,
   loading: true,
   isAuthenticated: false,
+  signIn: () => {},
   signOut: async () => {},
 });
 
@@ -61,6 +63,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false));
   }, []);
 
+  const signIn = useCallback((userData: AuthUser) => setUser(userData), []);
+
   const signOut = useCallback(async () => {
     await apiFetch("/api/auth/signout", { method: "POST" }).catch(() => {});
     localStorage.removeItem("authToken");
@@ -70,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, isAuthenticated: !!user, signOut }}
+      value={{ user, loading, isAuthenticated: !!user, signIn, signOut }}
     >
       {children}
     </AuthContext.Provider>

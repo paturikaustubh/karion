@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import {
@@ -13,6 +13,7 @@ import {
   Sun,
   Moon,
   SignOut,
+  Clock,
 } from "@phosphor-icons/react";
 import {
   Sidebar,
@@ -36,6 +37,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/components/providers/auth-provider";
+import { useUserSettings } from "@/components/providers/user-settings-provider";
 import { apiFetch } from "@/lib/api-client";
 
 const navItems = [
@@ -54,8 +56,8 @@ function getInitials(fullName: string): string {
 function UserAvatar() {
   const { user, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
+  const { timeFormat, setTimeFormat } = useUserSettings();
   const [mounted, setMounted] = useState(false);
-  const router = useRouter();
 
   useEffect(() => setMounted(true), []);
 
@@ -63,12 +65,27 @@ function UserAvatar() {
   const isDark = mounted && theme === "dark";
 
   async function handleSignOut() {
-    const token = localStorage.getItem("authToken");
-    if (token) {
-      await apiFetch("/api/auth/signout", { method: "POST" });
-    }
-    signOut();
-    router.push("/auth/signin");
+    await signOut();
+  }
+
+  async function handleThemeToggle() {
+    const newTheme = isDark ? "light" : "dark";
+    setTheme(newTheme);
+    apiFetch("/api/user/settings", {
+      method: "PATCH",
+      body: JSON.stringify({ settings: { theme: newTheme } }),
+      silent: true,
+    }).catch(() => {});
+  }
+
+  function handleTimeFormatToggle() {
+    const newFmt = timeFormat === "12h" ? "24h" : "12h";
+    setTimeFormat(newFmt);
+    apiFetch("/api/user/settings", {
+      method: "PATCH",
+      body: JSON.stringify({ settings: { time_format: newFmt } }),
+      silent: true,
+    }).catch(() => {});
   }
 
   return (
@@ -76,7 +93,7 @@ function UserAvatar() {
       <DropdownMenuTrigger asChild>
         <SidebarMenuButton
           size="lg"
-          className="group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center"
+          className="group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:overflow-visible"
           tooltip={user?.fullName ?? "Account"}
         >
           <div className="flex aspect-square size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-semibold select-none">
@@ -95,9 +112,13 @@ function UserAvatar() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem onClick={() => setTheme(isDark ? "light" : "dark")}>
+          <DropdownMenuItem onClick={handleThemeToggle}>
             {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
             {isDark ? "Light mode" : "Dark mode"}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleTimeFormatToggle}>
+            <Clock className="size-4" />
+            {timeFormat === "12h" ? "Switch to 24hr" : "Switch to 12hr"}
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
