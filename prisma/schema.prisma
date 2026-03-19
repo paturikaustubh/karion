@@ -60,6 +60,7 @@ model User {
   reports       Report[]
   reportConfig  ReportConfig?
   sessions      UserSession[]
+  userSettings  UserSettings?
 
   @@map("users")
 }
@@ -194,6 +195,21 @@ model ReportConfig {
   creator User @relation(fields: [createdBy], references: [id])
 
   @@map("report_configs")
+}
+
+// ─── User Settings ───────────────────────────────────────────────────────────
+
+model UserSettings {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  settings  Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isActive  Boolean  @default(true)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("user_settings")
 }
 
 // ─── Auth Sessions ───────────────────────────────────────────────────────────

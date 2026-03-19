@@ -3,12 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/components/providers/auth-provider";
 import { motion } from "framer-motion";
 import { gsap } from "gsap";
 import { toast } from "sonner";
 
 export default function SignUpPage() {
   const router = useRouter();
+  const { signIn } = useAuth();
   const cardRef = useRef<HTMLDivElement>(null);
   const [form, setForm] = useState({ fullName: "", username: "", email: "", password: "", confirm: "" });
   const [error, setError] = useState("");
@@ -55,6 +57,7 @@ export default function SignUpPage() {
         return;
       }
       localStorage.setItem("authToken", data.data.authToken);
+      signIn(data.data);
       toast.success(data.message);
       router.push("/dashboard");
     } catch {
