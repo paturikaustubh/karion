@@ -11,8 +11,12 @@ export const taskActivityData = {
       include?: Prisma.TaskActivityInclude;
       orderBy?: Prisma.TaskActivityOrderByWithRelationInput;
       take?: number;
+      skip?: number;
     }
   ) => prisma.taskActivity.findMany({ where, ...options }),
+
+  count: (where: Prisma.TaskActivityWhereInput) =>
+    prisma.taskActivity.count({ where }),
 
   create: (data: Prisma.TaskActivityCreateInput) =>
     prisma.taskActivity.create({ data }),

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useAuth } from "@/components/providers/auth-provider";
 import { motion } from "framer-motion";
 import { gsap } from "gsap";
 import { toast } from "sonner";
@@ -10,6 +11,7 @@ import { toast } from "sonner";
 function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { signIn } = useAuth();
   const cardRef = useRef<HTMLDivElement>(null);
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
@@ -44,6 +46,7 @@ function SignInForm() {
         return;
       }
       localStorage.setItem("authToken", data.data.authToken);
+      signIn(data.data);
       toast.success(data.message);
       const redirect = searchParams.get("redirect") || "/dashboard";
       router.push(redirect);

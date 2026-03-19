@@ -3,6 +3,7 @@ import { CreateTaskInput, UpdateTaskInput, TaskQueryInput } from "@/lib/validati
 import { logActivity } from "./activity-log.service";
 import { resolveTaskStatusId, resolveTaskSeverityId, resolveSourceId } from "@/lib/lookup";
 import { taskData } from "@/lib/data/task.data";
+import { taskActivityData } from "@/lib/data/task-activity.data";
 
 const taskInclude = {
   taskStatus: { select: { statusName: true, displayName: true } },
@@ -132,6 +133,20 @@ export async function updateTask(taskId: string, input: UpdateTaskInput, userId:
   }
 
   return task;
+}
+
+export async function getTaskActivities(taskId: string, userId: number, page = 1, limit = 5) {
+  const task = await taskData.find({ taskId, createdBy: userId, isActive: true });
+  if (!task) return null;
+
+  const where = { task: { taskId }, isActive: true };
+  const skip = (page - 1) * limit;
+  const [items, total] = await Promise.all([
+    taskActivityData.findMany(where, { orderBy: { createdAt: "desc" }, take: limit, skip }),
+    taskActivityData.count(where),
+  ]);
+
+  return { items, total, page, limit, hasMore: skip + items.length < total };
 }
 
 export async function deleteTask(taskId: string, userId: number) {

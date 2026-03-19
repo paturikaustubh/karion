@@ -2,20 +2,27 @@
 
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { format } from "date-fns";
 import { apiFetch } from "@/lib/api-client";
 import { useLookups } from "@/lib/use-lookups";
-import Link from "next/link";
 import {
   Plus,
   Play,
+  Stop,
   MagnifyingGlass,
   Funnel,
   Clock,
   ChatText,
 } from "@phosphor-icons/react";
-import { Card } from "@/components/ui/card";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardAction,
+  CardFooter,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -34,6 +41,8 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { StatusSelect } from "@/components/ui/status-select";
+import { SeveritySelect } from "@/components/ui/severity-select";
 
 interface TaskItem {
   taskId: string;
@@ -43,7 +52,7 @@ interface TaskItem {
   taskSeverity: { severityName: string; displayName: string };
   dueDate: string | null;
   createdAt: string;
-  totalTime: number;
+  totalWorkTime: number;
   _count: { comments: number; timeSessions: number };
 }
 
@@ -57,16 +66,19 @@ function formatDuration(seconds: number): string {
 
 const statusColors: Record<string, string> = {
   todo: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
-  in_progress: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
-  blocked: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
-  completed: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+  in_progress:
+    "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+  blocked:
+    "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+  completed:
+    "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
 };
 
 const priorityColors: Record<string, string> = {
-  low: "text-zinc-500",
-  medium: "text-blue-500",
-  high: "text-orange-500",
-  urgent: "text-red-500",
+  low: "text-zinc-700 dark:text-zinc-300",
+  medium: "text-blue-700 dark:text-blue-300",
+  high: "text-amber-700 dark:text-amber-300",
+  urgent: "text-red-700 dark:text-red-300",
 };
 
 function TasksContent() {
@@ -87,19 +99,28 @@ function TasksContent() {
   const [newDesc, setNewDesc] = useState("");
   const [newPriority, setNewPriority] = useState("");
   const [newStatus, setNewStatus] = useState("");
+  const [newDueDate, setNewDueDate] = useState("");
   const [creating, setCreating] = useState(false);
+
+  const [activeSession, setActiveSession] = useState<{
+    taskId: string;
+    sessionId: string;
+  } | null>(null);
 
   // Set form defaults once lookups are available
   useEffect(() => {
-    if (priorities.length > 0 && !newPriority) setNewPriority(priorities[0].value);
+    if (priorities.length > 0 && !newPriority)
+      setNewPriority(priorities[0].value);
     if (statuses.length > 0 && !newStatus) setNewStatus(statuses[0].value);
   }, [statuses, priorities]);
 
   const fetchTasks = useCallback(async () => {
     try {
       const params = new URLSearchParams();
-      if (statusFilter && statusFilter !== "all") params.set("status", statusFilter);
-      if (priorityFilter && priorityFilter !== "all") params.set("priority", priorityFilter);
+      if (statusFilter && statusFilter !== "all")
+        params.set("status", statusFilter);
+      if (priorityFilter && priorityFilter !== "all")
+        params.set("priority", priorityFilter);
       if (search) params.set("search", search);
 
       const res = await apiFetch(`/api/tasks?${params.toString()}`);
@@ -116,26 +137,47 @@ function TasksContent() {
     fetchTasks();
   }, [fetchTasks]);
 
-  const handleCreate = async () => {
+  useEffect(() => {
+    apiFetch("/api/time-sessions/active")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.data?.taskId && data.data?.taskSessionId)
+          setActiveSession({
+            taskId: data.data.taskId,
+            sessionId: data.data.taskSessionId,
+          });
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleCreate = async (redirect = false) => {
     if (!newTitle.trim()) return;
     setCreating(true);
     try {
+      const body: Record<string, string> = {
+        title: newTitle.trim(),
+        description: newDesc.trim(),
+        priority: newPriority,
+        status: newStatus,
+      };
+      if (newDueDate) body.dueDate = newDueDate;
       const res = await apiFetch("/api/tasks", {
         method: "POST",
-        body: JSON.stringify({
-          title: newTitle.trim(),
-          description: newDesc.trim(),
-          priority: newPriority,
-          status: newStatus,
-        }),
+        body: JSON.stringify(body),
       });
+      const data = await res.json();
       if (res.ok) {
         setNewTitle("");
         setNewDesc("");
         setNewPriority(priorities[0]?.value ?? "");
         setNewStatus(statuses[0]?.value ?? "");
+        setNewDueDate("");
         setCreateOpen(false);
-        fetchTasks();
+        if (redirect) {
+          router.push(`/tasks/${data.data.taskId}`);
+        } else {
+          fetchTasks();
+        }
       }
     } catch (error) {
       console.error("Failed to create task:", error);
@@ -144,10 +186,37 @@ function TasksContent() {
     }
   };
 
+  const handleStatusChange = async (taskId: string, newStatus: string) => {
+    await apiFetch(`/api/tasks/${taskId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: newStatus }),
+    });
+    fetchTasks();
+  };
+
   const startTimer = async (e: React.MouseEvent, taskId: string) => {
     e.preventDefault();
     e.stopPropagation();
-    await apiFetch(`/api/tasks/${taskId}/time-sessions`, { method: "POST" });
+    const res = await apiFetch(`/api/tasks/${taskId}/time-sessions`, {
+      method: "POST",
+    });
+    const data = await res.json();
+    if (data.data?.taskSessionId)
+      setActiveSession({ taskId, sessionId: data.data.taskSessionId });
+    fetchTasks();
+  };
+
+  const stopTimer = async (
+    e: React.MouseEvent,
+    taskId: string,
+    sessionId: string,
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    await apiFetch(`/api/tasks/${taskId}/time-sessions/${sessionId}`, {
+      method: "PATCH",
+    });
+    setActiveSession(null);
     fetchTasks();
   };
 
@@ -176,7 +245,9 @@ function TasksContent() {
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
               {statuses.map((s) => (
-                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                <SelectItem key={s.value} value={s.value}>
+                  {s.label}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -188,7 +259,9 @@ function TasksContent() {
             <SelectContent>
               <SelectItem value="all">All Priority</SelectItem>
               {priorities.map((p) => (
-                <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                <SelectItem key={p.value} value={p.value}>
+                  {p.label}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -212,7 +285,7 @@ function TasksContent() {
                     placeholder="What needs to be done?"
                     value={newTitle}
                     onChange={(e) => setNewTitle(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+                    onKeyDown={(e) => e.key === "Enter" && handleCreate(false)}
                   />
                 </div>
                 <div className="space-y-2">
@@ -228,38 +301,49 @@ function TasksContent() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Priority</Label>
-                    <Select value={newPriority} onValueChange={setNewPriority}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select priority" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {priorities.map((p) => (
-                          <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <SeveritySelect
+                      value={newPriority}
+                      onValueChange={setNewPriority}
+                      severities={priorities}
+                      className="w-full"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Status</Label>
-                    <Select value={newStatus} onValueChange={setNewStatus}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {statuses.map((s) => (
-                          <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <StatusSelect
+                      value={newStatus}
+                      onValueChange={setNewStatus}
+                      statuses={statuses}
+                      className="w-full"
+                    />
                   </div>
                 </div>
-                <Button
-                  onClick={handleCreate}
-                  disabled={!newTitle.trim() || creating}
-                  className="w-full"
-                >
-                  {creating ? "Creating…" : "Create Task"}
-                </Button>
+                <div className="space-y-2">
+                  <Label htmlFor="dueDate">ETA (optional)</Label>
+                  <Input
+                    id="dueDate"
+                    type="date"
+                    value={newDueDate}
+                    onChange={(e) => setNewDueDate(e.target.value)}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => handleCreate(false)}
+                    disabled={!newTitle.trim() || creating}
+                    className="flex-1"
+                  >
+                    {creating ? "Creating…" : "Create"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => handleCreate(true)}
+                    disabled={!newTitle.trim() || creating}
+                    className="flex-1"
+                  >
+                    Create & Open
+                  </Button>
+                </div>
               </div>
             </DialogContent>
           </Dialog>
@@ -287,59 +371,84 @@ function TasksContent() {
           )}
         </Card>
       ) : (
-        <div className="space-y-2">
-          {tasks.map((task) => (
-            <Link key={task.taskId} href={`/tasks/${task.taskId}`}>
-              <Card className="group cursor-pointer transition-all hover:shadow-md hover:border-primary/20 p-4">
-                <div className="flex items-start gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Badge
-                        variant="secondary"
-                        className={`shrink-0 text-[10px] ${statusColors[task.taskStatus.statusName] ?? ""}`}
-                      >
-                        {task.taskStatus.displayName}
-                      </Badge>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {tasks.map((task) => {
+            const sev = task.taskSeverity.severityName;
+            const isActive = activeSession?.taskId === task.taskId;
+            return (
+              <Card
+                key={task.taskId}
+                className="cursor-pointer"
+                onClick={() => router.push(`/tasks/${task.taskId}`)}
+              >
+                <CardHeader>
+                  <CardTitle className="text-sm font-medium line-clamp-2">
+                    {task.taskName}
+                  </CardTitle>
+                  {task.description && (
+                    <CardDescription className="text-xs line-clamp-2">
+                      {task.description.length > 100
+                        ? task.description.slice(0, 100) + "…"
+                        : task.description}
+                    </CardDescription>
+                  )}
+                  <CardAction>
+                    <div className="flex flex-col items-end gap-1">
                       <span
-                        className={`text-[10px] font-semibold uppercase ${priorityColors[task.taskSeverity.severityName] ?? "text-muted-foreground"}`}
+                        className={`text-xs font-semibold ${priorityColors[sev]}`}
                       >
                         {task.taskSeverity.displayName}
                       </span>
                     </div>
-                    <h3 className="text-sm font-medium truncate group-hover:text-primary transition-colors">
-                      {task.taskName}
-                    </h3>
-                    {task.description && (
-                      <p className="text-xs text-muted-foreground mt-1 truncate max-w-lg">
-                        {task.description}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-3 shrink-0 text-xs text-muted-foreground">
-                    {task._count.comments > 0 && (
-                      <span className="flex items-center gap-1">
-                        <ChatText className="h-3.5 w-3.5" /> {task._count.comments}
+                  </CardAction>
+                </CardHeader>
+                <CardFooter
+                  className="flex items-end justify-between gap-2 mt-auto"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                    <span className="text-[10px] text-muted-foreground">
+                      {format(new Date(task.createdAt), "MMM d, yyyy")}
+                    </span>
+                    {task.dueDate && (
+                      <span className="text-[10px] text-muted-foreground">
+                        ETA: {format(new Date(task.dueDate), "MMM d")}
                       </span>
                     )}
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-3.5 w-3.5" /> {formatDuration(task.totalTime)}
-                    </span>
-                    {task.taskStatus.statusName !== "completed" && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={(e) => startTimer(e, task.taskId)}
-                      >
-                        <Play className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
                   </div>
-                </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <StatusSelect
+                      value={task.taskStatus.statusName}
+                      onValueChange={(value) =>
+                        handleStatusChange(task.taskId, value)
+                      }
+                      statuses={statuses}
+                      className="text-xs"
+                    />
+                    <Button
+                      variant={isActive ? "destructive" : "outline"}
+                      className="text-xs"
+                      onClick={(e) =>
+                        isActive && activeSession
+                          ? stopTimer(e, task.taskId, activeSession.sessionId)
+                          : startTimer(e, task.taskId)
+                      }
+                    >
+                      {isActive ? (
+                        <>
+                          <Stop weight="fill" className="mr-1 h-3 w-3" /> Stop
+                        </>
+                      ) : (
+                        <>
+                          <Play weight="fill" className="mr-1 h-3 w-3" /> Start
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </CardFooter>
               </Card>
-            </Link>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
