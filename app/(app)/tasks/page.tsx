@@ -352,9 +352,30 @@ function TasksContent() {
 
       {/* ── Task List ─────────────────────────── */}
       {loading ? (
-        <div className="space-y-3">
-          {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-20 rounded-xl" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="rounded-xl border bg-card p-4 flex flex-col gap-3">
+              {/* Header: title + priority badge */}
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 space-y-1.5">
+                  <Skeleton className="h-3.5 w-3/4 rounded" />
+                  <Skeleton className="h-3 w-1/2 rounded" />
+                  <Skeleton className="h-3 w-2/3 rounded" />
+                </div>
+                <Skeleton className="h-3.5 w-12 rounded shrink-0" />
+              </div>
+              {/* Footer: date + status + button */}
+              <div className="flex items-end justify-between gap-2 mt-auto">
+                <div className="space-y-1">
+                  <Skeleton className="h-2.5 w-20 rounded" />
+                  <Skeleton className="h-2.5 w-14 rounded" />
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Skeleton className="h-7 w-24 rounded-md" />
+                  <Skeleton className="h-7 w-16 rounded-md" />
+                </div>
+              </div>
+            </div>
           ))}
         </div>
       ) : tasks.length === 0 ? (
@@ -459,9 +480,25 @@ export default function TasksPage() {
   return (
     <Suspense
       fallback={
-        <div className="space-y-3">
-          <Skeleton className="h-20 rounded-xl" />
-          <Skeleton className="h-20 rounded-xl" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {[1, 2].map((i) => (
+            <div key={i} className="rounded-xl border bg-card p-4 flex flex-col gap-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 space-y-1.5">
+                  <Skeleton className="h-3.5 w-3/4 rounded" />
+                  <Skeleton className="h-3 w-1/2 rounded" />
+                </div>
+                <Skeleton className="h-3.5 w-12 rounded shrink-0" />
+              </div>
+              <div className="flex items-end justify-between gap-2 mt-auto">
+                <Skeleton className="h-2.5 w-20 rounded" />
+                <div className="flex gap-1.5">
+                  <Skeleton className="h-7 w-24 rounded-md" />
+                  <Skeleton className="h-7 w-16 rounded-md" />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       }
     >
