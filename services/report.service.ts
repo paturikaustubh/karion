@@ -58,7 +58,7 @@ export async function generateReport(dateStr: string, userId: number) {
     }),
     totalTimeSeconds: 0,
     tasksCompleted: 0,
-    activities: activities.map((a) => ({
+    activities: (activities as any[]).map((a: any) => ({
       activityType: a.activityType,
       description: a.description,
       createdAt: a.createdAt.toISOString(),

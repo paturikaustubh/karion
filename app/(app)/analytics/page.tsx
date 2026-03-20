@@ -102,7 +102,7 @@ function TotalTimeDisplay({
       <p className="text-xl font-bold tabular-nums">
         {formatDuration(liveWall)}
       </p>
-      <p className="text-[10px] text-muted-foreground">
+      <p className="text-muted-foreground">
         task time: {formatDuration(liveTask)}
       </p>
     </>
