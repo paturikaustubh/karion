@@ -86,8 +86,8 @@ export async function getDashboard(userId: number): Promise<DashboardData> {
   const weekDays: { date: string; wallClockSeconds: number; taskTimeSeconds: number }[] = [];
   for (let d = new Date(weekStart); d <= weekEnd; d.setDate(d.getDate() + 1)) {
     const dayStr = format(d, "yyyy-MM-dd");
-    const dayStart = new Date(dayStr + "T00:00:00.000Z");
-    const dayEnd = new Date(dayStr + "T23:59:59.999Z");
+    const dayStart = startOfDay(new Date(d));
+    const dayEnd = endOfDay(new Date(d));
     const daySessions = (weekSessions as any[]).filter(
       (s) => s.startTime >= dayStart && s.startTime <= dayEnd
     );
@@ -115,7 +115,7 @@ export async function getDashboard(userId: number): Promise<DashboardData> {
       ? Math.round((weekTaskTimeSeconds / weekWallClockSeconds) * 100) / 100
       : 1;
 
-  // ── Status distribution (all open tasks) ──────────────────────────────────
+  // ── Status distribution (all tasks) ──────────────────────────────────────
   const statusMap = new Map<string, DistributionItem>();
   for (const task of allTasks as any[]) {
     const st = task.taskStatus;
