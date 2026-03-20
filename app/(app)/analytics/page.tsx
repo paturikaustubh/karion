@@ -15,7 +15,13 @@ import {
 import { apiFetch } from "@/lib/api-client";
 import { useLiveTime } from "@/lib/hooks/use-live-time";
 import { formatDuration } from "@/lib/time-utils";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -24,13 +30,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  CartesianGrid,
-  Cell,
-} from "recharts";
+import { BarChart, Bar, XAxis, CartesianGrid, Cell } from "recharts";
 import { CaretLeft, CaretRight } from "@phosphor-icons/react";
 import type { AnalyticsData } from "@/lib/types";
 
@@ -38,7 +38,7 @@ type Period = "day" | "week" | "month" | "custom";
 
 function getPeriodRange(
   period: Period,
-  offset: number
+  offset: number,
 ): { from: string; to: string; label: string } {
   const now = new Date();
   if (period === "day") {
@@ -68,14 +68,14 @@ function getPeriodRange(
 }
 
 const hoursChartConfig = {
-  wallClock: { label: "Wall Clock (min)", color: "hsl(var(--chart-1))" },
-  taskTime: { label: "Task Time (min)", color: "hsl(var(--chart-2))" },
+  wallClock: { label: "Wall Clock (min)", color: "var(--chart-1)" },
+  taskTime: { label: "Task Time (min)", color: "var(--chart-2)" },
 };
 const completionChartConfig = {
-  tasksCompleted: { label: "Completed", color: "hsl(var(--chart-3))" },
+  tasksCompleted: { label: "Completed", color: "var(--chart-3)" },
 };
 const hourlyChartConfig = {
-  seconds: { label: "Minutes", color: "hsl(var(--chart-1))" },
+  seconds: { label: "Minutes", color: "var(--chart-1)" },
 };
 
 const severityColors: Record<string, string> = {
@@ -100,7 +100,9 @@ function TotalTimeDisplay({
   const liveTask = useLiveTime(taskTime, isRunning, sessionStartedAt);
   return (
     <>
-      <p className="text-xl font-bold tabular-nums">{formatDuration(liveWall)}</p>
+      <p className="text-xl font-bold tabular-nums">
+        {formatDuration(liveWall)}
+      </p>
       <p className="text-[10px] text-muted-foreground">
         task time: {formatDuration(liveTask)}
       </p>
@@ -112,7 +114,7 @@ export default function AnalyticsPage() {
   const [period, setPeriod] = useState<Period>("week");
   const [offset, setOffset] = useState(0);
   const [customFrom, setCustomFrom] = useState(
-    format(addDays(new Date(), -29), "yyyy-MM-dd")
+    format(addDays(new Date(), -29), "yyyy-MM-dd"),
   );
   const [customTo, setCustomTo] = useState(format(new Date(), "yyyy-MM-dd"));
   const [appliedCustom, setAppliedCustom] = useState<{
@@ -125,7 +127,11 @@ export default function AnalyticsPage() {
 
   const { from, to, label } =
     period === "custom" && appliedCustom
-      ? { from: appliedCustom.from, to: appliedCustom.to, label: `${appliedCustom.from} → ${appliedCustom.to}` }
+      ? {
+          from: appliedCustom.from,
+          to: appliedCustom.to,
+          label: `${appliedCustom.from} → ${appliedCustom.to}`,
+        }
       : getPeriodRange(period, offset);
 
   const fetchAnalytics = useCallback(async () => {
@@ -159,13 +165,20 @@ export default function AnalyticsPage() {
 
   const hourlyData = (data?.hourlyDistribution ?? []).map((h) => ({
     hour: h.hour,
-    label: h.hour === 0 ? "12a" : h.hour < 12 ? `${h.hour}a` : h.hour === 12 ? "12p" : `${h.hour - 12}p`,
+    label:
+      h.hour === 0
+        ? "12a"
+        : h.hour < 12
+          ? `${h.hour}a`
+          : h.hour === 12
+            ? "12p"
+            : `${h.hour - 12}p`,
     seconds: Math.round(h.seconds / 60),
   }));
 
   const maxTopTask = Math.max(
     1,
-    ...(data?.topTasks ?? []).map((t) => t.totalTimeSeconds)
+    ...(data?.topTasks ?? []).map((t) => t.totalTimeSeconds),
   );
 
   if (loading) {
@@ -195,7 +208,10 @@ export default function AnalyticsPage() {
           {(["day", "week", "month"] as Period[]).map((p) => (
             <button
               key={p}
-              onClick={() => { setPeriod(p); setOffset(0); }}
+              onClick={() => {
+                setPeriod(p);
+                setOffset(0);
+              }}
               className={`px-3 py-1.5 capitalize transition-colors ${
                 period === p
                   ? "bg-primary text-primary-foreground"
@@ -264,11 +280,11 @@ export default function AnalyticsPage() {
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <Card>
-          <CardContent className="py-3 px-3">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">
-              Wall Clock
-            </p>
+        <Card className="gap-2">
+          <CardHeader>
+            <CardTitle>Wall Clock</CardTitle>
+          </CardHeader>
+          <CardContent>
             {data ? (
               <TotalTimeDisplay
                 wallClock={data.totalWallClockSeconds}
@@ -282,47 +298,53 @@ export default function AnalyticsPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="py-3 px-3">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">
-              Efficiency
-            </p>
-            <p className={`text-xl font-bold ${(data?.efficiencyMultiplier ?? 1) > 1 ? "text-emerald-500" : ""}`}>
+        <Card className="gap-2">
+          <CardHeader>
+            <CardTitle>Efficiency</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p
+              className={`text-xl font-bold ${(data?.efficiencyMultiplier ?? 1) > 1 ? "text-emerald-500" : ""}`}
+            >
               {data ? `${data.efficiencyMultiplier}x` : "—"}
             </p>
-            <p className="text-[10px] text-muted-foreground">task ÷ clock</p>
+            <CardDescription>task ÷ clock</CardDescription>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="py-3 px-3">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">
-              Completed
+        <Card className="gap-2">
+          <CardHeader>
+            <CardTitle>Completed</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xl font-bold">
+              {data?.totalTasksCompleted ?? "—"}
             </p>
-            <p className="text-xl font-bold">{data?.totalTasksCompleted ?? "—"}</p>
-            <p className="text-[10px] text-muted-foreground">tasks</p>
+            <CardDescription>tasks</CardDescription>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="py-3 px-3">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">
-              Avg / Day
-            </p>
+        <Card className="gap-2">
+          <CardHeader>
+            <CardTitle>Avg / Day</CardTitle>
+          </CardHeader>
+          <CardContent>
             <p className="text-xl font-bold">
               {data ? formatDuration(data.avgDailyWallClockSeconds) : "—"}
             </p>
-            <p className="text-[10px] text-muted-foreground">active days only</p>
+            <CardDescription>active days only</CardDescription>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="py-3 px-3">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">
-              Comments
+        <Card className="gap-2">
+          <CardHeader>
+            <CardTitle>Comments</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xl font-bold">
+              {data?.totalCommentsAdded ?? "—"}
             </p>
-            <p className="text-xl font-bold">{data?.totalCommentsAdded ?? "—"}</p>
-            <p className="text-[10px] text-muted-foreground">added</p>
+            <CardDescription>added</CardDescription>
           </CardContent>
         </Card>
       </div>
@@ -330,45 +352,80 @@ export default function AnalyticsPage() {
       {/* Charts row 1: hours + completion */}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {/* Hours worked */}
-        <Card>
-          <CardHeader className="pb-1 pt-4 px-4">
-            <CardTitle className="text-sm font-medium">Hours Worked</CardTitle>
-            <div className="flex gap-3 text-[10px] text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <span className="inline-block h-2 w-2 rounded-sm bg-[hsl(var(--chart-1))]" />
-                Wall clock
+        <Card className="gap-2">
+          <CardHeader>
+            <CardTitle>Hours Worked</CardTitle>
+            <CardDescription>
+              <span className="flex gap-3">
+                <span className="flex items-center gap-1">
+                  <span className="inline-block h-2 w-2 rounded-sm bg-[var(--chart-1)]" />
+                  Wall clock
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="inline-block h-2 w-2 rounded-sm bg-[var(--chart-2)]" />
+                  Task time
+                </span>
               </span>
-              <span className="flex items-center gap-1">
-                <span className="inline-block h-2 w-2 rounded-sm bg-[hsl(var(--chart-2))]" />
-                Task time
-              </span>
-            </div>
+            </CardDescription>
           </CardHeader>
           <CardContent className="px-2 pb-3">
-            <ChartContainer config={hoursChartConfig} className="h-[160px] w-full">
+            <ChartContainer
+              config={hoursChartConfig}
+              className="h-[160px] w-full"
+            >
               <BarChart data={hoursData} barGap={2}>
                 <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fontSize: 10 }} />
-                <ChartTooltip content={<ChartTooltipContent formatter={(v) => `${v}m`} />} />
-                <Bar dataKey="wallClock" fill="var(--color-wallClock)" radius={[3,3,0,0]} maxBarSize={20} />
-                <Bar dataKey="taskTime" fill="var(--color-taskTime)" radius={[3,3,0,0]} maxBarSize={20} />
+                <XAxis
+                  dataKey="day"
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fontSize: 10 }}
+                />
+                <ChartTooltip
+                  content={<ChartTooltipContent formatter={(v) => `${v}m`} />}
+                />
+                <Bar
+                  dataKey="wallClock"
+                  fill="var(--color-wallClock)"
+                  radius={[3, 3, 0, 0]}
+                  maxBarSize={20}
+                />
+                <Bar
+                  dataKey="taskTime"
+                  fill="var(--color-taskTime)"
+                  radius={[3, 3, 0, 0]}
+                  maxBarSize={20}
+                />
               </BarChart>
             </ChartContainer>
           </CardContent>
         </Card>
 
         {/* Task completion */}
-        <Card>
-          <CardHeader className="pb-1 pt-4 px-4">
-            <CardTitle className="text-sm font-medium">Tasks Completed</CardTitle>
+        <Card className="gap-2">
+          <CardHeader>
+            <CardTitle>Tasks Completed</CardTitle>
           </CardHeader>
           <CardContent className="px-2 pb-3">
-            <ChartContainer config={completionChartConfig} className="h-[160px] w-full">
+            <ChartContainer
+              config={completionChartConfig}
+              className="h-[160px] w-full"
+            >
               <BarChart data={completionData}>
                 <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fontSize: 10 }} />
+                <XAxis
+                  dataKey="day"
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fontSize: 10 }}
+                />
                 <ChartTooltip content={<ChartTooltipContent />} />
-                <Bar dataKey="tasksCompleted" fill="var(--color-tasksCompleted)" radius={[3,3,0,0]} maxBarSize={20} />
+                <Bar
+                  dataKey="tasksCompleted"
+                  fill="var(--color-tasksCompleted)"
+                  radius={[3, 3, 0, 0]}
+                  maxBarSize={20}
+                />
               </BarChart>
             </ChartContainer>
           </CardContent>
@@ -378,15 +435,17 @@ export default function AnalyticsPage() {
       {/* Charts row 2: top tasks + priority */}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {/* Top tasks by time */}
-        <Card>
+        <Card className="gap-2">
           <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-sm font-medium">Top Tasks by Time</CardTitle>
+            <CardTitle>Top Tasks by Time</CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4 space-y-2.5">
             {(data?.topTasks ?? []).slice(0, 6).map((t) => (
               <div key={t.taskId}>
                 <div className="flex justify-between mb-1">
-                  <span className="text-xs truncate max-w-[70%]">{t.taskName}</span>
+                  <span className="text-xs truncate max-w-[70%]">
+                    {t.taskName}
+                  </span>
                   <span className="text-xs text-muted-foreground shrink-0">
                     {formatDuration(t.totalTimeSeconds)}
                   </span>
@@ -394,7 +453,9 @@ export default function AnalyticsPage() {
                 <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                   <div
                     className="h-full rounded-full bg-[hsl(var(--chart-1))]"
-                    style={{ width: `${Math.round((t.totalTimeSeconds / maxTopTask) * 100)}%` }}
+                    style={{
+                      width: `${Math.round((t.totalTimeSeconds / maxTopTask) * 100)}%`,
+                    }}
                   />
                 </div>
               </div>
@@ -408,29 +469,32 @@ export default function AnalyticsPage() {
         </Card>
 
         {/* Priority distribution */}
-        <Card>
+        <Card className="gap-2">
           <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-sm font-medium">Tasks by Priority</CardTitle>
-            <p className="text-[10px] text-muted-foreground">tasks worked on in period</p>
+            <CardTitle>Tasks by Priority</CardTitle>
+            <CardDescription>tasks worked on in period</CardDescription>
           </CardHeader>
           <CardContent className="px-4 pb-4 space-y-2.5">
             {(data?.severityDistribution ?? []).map((item) => {
               const total = (data?.severityDistribution ?? []).reduce(
                 (s, i) => s + i.count,
-                0
+                0,
               );
               return (
                 <div key={item.name}>
                   <div className="flex justify-between mb-1">
                     <span className="text-xs">{item.displayName}</span>
-                    <span className="text-xs text-muted-foreground">{item.count}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {item.count}
+                    </span>
                   </div>
                   <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                     <div
                       className="h-full rounded-full"
                       style={{
                         width: `${Math.round((item.count / Math.max(1, total)) * 100)}%`,
-                        background: severityColors[item.name] ?? "hsl(var(--chart-1))",
+                        background:
+                          severityColors[item.name] ?? "hsl(var(--chart-1))",
                       }}
                     />
                   </div>
@@ -442,15 +506,18 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Productive hours heatmap */}
-      <Card>
-        <CardHeader className="pb-1 pt-4 px-4">
-          <CardTitle className="text-sm font-medium">Most Productive Hours</CardTitle>
-          <p className="text-[10px] text-muted-foreground">
+      <Card className="gap-2">
+        <CardHeader>
+          <CardTitle>Most Productive Hours</CardTitle>
+          <CardDescription>
             Average minutes logged per hour of day (UTC)
-          </p>
+          </CardDescription>
         </CardHeader>
         <CardContent className="px-2 pb-3">
-          <ChartContainer config={hourlyChartConfig} className="h-[120px] w-full">
+          <ChartContainer
+            config={hourlyChartConfig}
+            className="h-[120px] w-full"
+          >
             <BarChart data={hourlyData}>
               <CartesianGrid vertical={false} strokeDasharray="3 3" />
               <XAxis
@@ -468,7 +535,12 @@ export default function AnalyticsPage() {
                   />
                 }
               />
-              <Bar dataKey="seconds" fill="var(--color-seconds)" radius={[2,2,0,0]} maxBarSize={16} />
+              <Bar
+                dataKey="seconds"
+                fill="var(--color-seconds)"
+                radius={[2, 2, 0, 0]}
+                maxBarSize={16}
+              />
             </BarChart>
           </ChartContainer>
         </CardContent>
