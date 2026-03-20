@@ -21,12 +21,3 @@ jobs:
           token: ${{ secrets.RELEASE_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
-
-      - name: Auto-merge release PR
-        run: |
-          PR=$(gh pr list --label "autorelease: pending" --base main --json number --jq '.[0].number')
-          if [ -n "$PR" ] && [ "$PR" != "null" ]; then
-            gh pr merge --merge $PR
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
