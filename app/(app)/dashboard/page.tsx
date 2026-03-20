@@ -1,189 +1,378 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { format } from "date-fns";
+import { apiFetch } from "@/lib/api-client";
+import { useLiveTime } from "@/lib/hooks/use-live-time";
+import { formatDuration } from "@/lib/time-utils";
+import { useAuth } from "@/components/providers/auth-provider";
 import {
-  Plus,
-  ClockIcon,
-  CheckCircleIcon,
-  LightningIcon,
-  ArrowRight,
-} from "@phosphor-icons/react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useAuth } from "@/components/providers/auth-provider";
-import { apiFetch } from "@/lib/api-client";
-import { format, subDays } from "date-fns";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
+import { BarChart, Bar, XAxis, CartesianGrid } from "recharts";
+import {
+  Clock,
+  CheckCircle,
+  Warning,
+  Play,
+  Plus,
+  ArrowRight,
+  FileText,
+} from "@phosphor-icons/react";
+import type { DashboardData, ActivityLogItem } from "@/lib/types";
 
-interface AnalyticsData {
-  totalTimeSeconds: number;
-  totalTasksCompleted: number;
-  totalCommentsAdded: number;
-  avgDailyTimeSeconds: number;
-}
+const chartConfig = {
+  wallClock: { label: "Wall Clock", color: "var(--chart-1)" },
+  taskTime: { label: "Task Time", color: "var(--chart-2)" },
+};
 
-interface ActivityItem {
-  taskActivityId: string;
-  activityType: string;
-  description: string;
-  createdAt: string;
-}
+const statusColors: Record<string, string> = {
+  todo: "bg-zinc-400",
+  in_progress: "bg-blue-500",
+  blocked: "bg-amber-500",
+  completed: "bg-emerald-500",
+};
 
-function formatDuration(seconds: number): string {
-  const hrs = Math.floor(seconds / 3600);
-  const mins = Math.floor((seconds % 3600) / 60);
-  if (hrs > 0) return `${hrs}h ${mins}m`;
-  if (mins > 0) return `${mins}m`;
-  return "0m";
-}
+function ActiveTaskCard({ data }: { data: DashboardData["activeTask"] }) {
+  const liveTime = useLiveTime(
+    data?.taskTimeSeconds ?? 0,
+    !!data,
+    data?.sessionStartedAt ?? null,
+  );
 
-export default function DashboardPage() {
-  const { user } = useAuth();
-  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
-  const [activities, setActivities] = useState<ActivityItem[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const from = format(subDays(new Date(), 7), "yyyy-MM-dd");
-    const to = format(new Date(), "yyyy-MM-dd");
-
-    Promise.all([
-      apiFetch(`/api/analytics?from=${from}&to=${to}`).then((r) => r.json()),
-      apiFetch("/api/activity-log?limit=10").then((r) => r.json()),
-    ])
-      .then(([analyticsData, activityData]) => {
-        setAnalytics(analyticsData.data || null);
-        setActivities(activityData.data || []);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
-
-  if (loading) {
+  if (!data) {
     return (
-      <div className="space-y-6">
-        <Skeleton className="h-10 w-64" />
-        <div className="grid gap-4 md:grid-cols-3">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-24 rounded-xl" />
-          ))}
-        </div>
-        <Skeleton className="h-64 rounded-xl" />
-      </div>
+      <Card className="gap-2">
+        <CardHeader>
+          <CardTitle>Active Task</CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center gap-3">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted">
+            <Play className="h-3.5 w-3.5 text-muted-foreground" weight="fill" />
+          </div>
+          <p className="text-sm font-medium text-muted-foreground">
+            None running
+          </p>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <Card className="border-blue-500/30 bg-blue-500/5">
+      <CardHeader>
+        <CardTitle>Active Task</CardTitle>
+      </CardHeader>
+      <CardContent className="flex items-center gap-3">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-500/15">
+          <Play className="h-3.5 w-3.5 text-blue-500" weight="fill" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium">{data.taskName}</p>
+        </div>
+        <span className="shrink-0 text-xs font-mono text-blue-500">
+          {formatDuration(liveTime)}
+        </span>
+      </CardContent>
+    </Card>
+  );
+}
+
+function TodayTimeCard({
+  wallClock,
+  isRunning,
+  sessionStartedAt,
+}: {
+  wallClock: number;
+  isRunning: boolean;
+  sessionStartedAt: string | null;
+}) {
+  const liveTime = useLiveTime(wallClock, isRunning, sessionStartedAt);
+  return (
+    <Card className="gap-2">
+      <CardHeader>
+        <CardTitle>Today&apos;s Time</CardTitle>
+      </CardHeader>
+      <CardContent className="flex items-center gap-3">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-500/15">
+          <Clock className="h-3.5 w-3.5 text-violet-500" weight="fill" />
+        </div>
+        <p className="text-lg font-bold tabular-nums">
+          {formatDuration(liveTime)}
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+export default function DashboardPage() {
+  const { user } = useAuth();
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [activities, setActivities] = useState<ActivityLogItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchAll = useCallback(async () => {
+    try {
+      const [dashRes, actRes] = await Promise.all([
+        apiFetch("/api/dashboard").then((r) => r.json()),
+        apiFetch("/api/activity-log?limit=8").then((r) => r.json()),
+      ]);
+      setData(dashRes.data ?? null);
+      setActivities(actRes.data ?? []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAll();
+  }, [fetchAll]);
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-7 w-48" />
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-16 rounded-xl" />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+          <Skeleton className="lg:col-span-2 h-56 rounded-xl" />
+          <Skeleton className="h-56 rounded-xl" />
+        </div>
+        <Skeleton className="h-40 rounded-xl" />
+      </div>
+    );
+  }
+
+  const weekChartData = (data?.weekDailyStats ?? []).map((d) => ({
+    day: format(new Date(d.date + "T12:00:00"), "EEE"),
+    wallClock: Math.round(d.wallClockSeconds / 60),
+    taskTime: Math.round(d.taskTimeSeconds / 60),
+  }));
+
+  return (
+    <div className="space-y-5">
+      {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold tracking-tight">
+        <h2 className="text-xl font-bold tracking-tight">
           Welcome back{user ? `, ${user.fullName.split(" ")[0]}` : ""}
         </h2>
-        <p className="text-sm text-muted-foreground">
-          Here&apos;s your week at a glance.
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Here&apos;s your day at a glance.
         </p>
       </div>
 
-      {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardContent className="flex items-center gap-3 ">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/40">
-              <ClockIcon
-                className="h-4 w-4 text-blue-600 dark:text-blue-400"
-                weight="fill"
-              />
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {data && <ActiveTaskCard data={data.activeTask} />}
+        {data && (
+          <TodayTimeCard
+            wallClock={data.todayWallClockSeconds}
+            isRunning={data.todayIsRunning}
+            sessionStartedAt={data.todaySessionStartedAt}
+          />
+        )}
+        <Card className="gap-2">
+          <CardHeader>
+            <CardTitle>Due Today</CardTitle>
+          </CardHeader>
+          <CardContent className="flex items-center gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/15">
+              <Warning className="h-3.5 w-3.5 text-amber-500" weight="fill" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Time This Week</p>
-              <p className="text-lg font-bold">
-                {analytics ? formatDuration(analytics.totalTimeSeconds) : "—"}
-              </p>
+              <p className="text-lg font-bold">{data?.todayDueCount ?? "—"}</p>
+              {(data?.overdueCount ?? 0) > 0 && (
+                <p className="text-[10px] text-red-500">
+                  {data!.overdueCount} overdue
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
-
-        <Card>
-          <CardContent className="flex items-center gap-3 ">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/40">
-              <CheckCircleIcon
-                className="h-4 w-4 text-emerald-600 dark:text-emerald-400"
+        <Card className="gap-2">
+          <CardHeader>
+            <CardTitle>Completed Today</CardTitle>
+          </CardHeader>
+          <CardContent className="flex items-center gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15">
+              <CheckCircle
+                className="h-3.5 w-3.5 text-emerald-500"
                 weight="fill"
               />
             </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Tasks Completed</p>
-              <p className="text-lg font-bold">
-                {analytics?.totalTasksCompleted ?? "—"}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="flex items-center gap-3 ">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-900/40">
-              <LightningIcon
-                className="h-4 w-4 text-violet-600 dark:text-violet-400"
-                weight="fill"
-              />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Avg/Day</p>
-              <p className="text-lg font-bold">
-                {analytics
-                  ? formatDuration(analytics.avgDailyTimeSeconds)
-                  : "—"}
-              </p>
-            </div>
+            <p className="text-lg font-bold">{data?.todayCompleted ?? "—"}</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Quick Actions */}
-      <div className="flex gap-3">
-        <Button asChild size="sm">
+      {/* Quick actions */}
+      <div className="flex gap-2">
+        <Button size="sm" asChild>
           <Link href="/tasks?action=create">
-            <Plus className="mr-1.5 h-4 w-4" /> New Task
+            <Plus className="mr-1.5 h-3.5 w-3.5" /> New Task
           </Link>
         </Button>
-        <Button asChild variant="outline" size="sm">
-          <Link href="/reports?action=generate">Generate Report</Link>
+        <Button size="sm" variant="outline" asChild>
+          <Link href="/reports?action=generate">
+            <FileText className="mr-1.5 h-3.5 w-3.5" /> Generate Report
+          </Link>
         </Button>
       </div>
 
-      {/* Recent Activity */}
-      <Card>
-        <CardHeader className="pb-3">
+      {/* Charts row */}
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+        {/* Weekly hours */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Hours This Week</CardTitle>
+              <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <span className="inline-block h-2 w-2 rounded-sm bg-[var(--chart-1)]" />
+                  Wall clock
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="inline-block h-2 w-2 rounded-sm bg-[var(--chart-2)]" />
+                  Task time
+                </span>
+              </div>
+            </div>
+            {data && (
+              <CardDescription>
+                {formatDuration(data.weekWallClockSeconds)} wall clock
+                {data.weekEfficiency !== 1 && (
+                  <span
+                    className={`ml-2 font-medium ${data.weekEfficiency > 1 ? "text-emerald-500" : "text-amber-500"}`}
+                  >
+                    {data.weekEfficiency}x efficiency
+                  </span>
+                )}
+              </CardDescription>
+            )}
+          </CardHeader>
+          <CardContent className="px-2 pb-3">
+            <ChartContainer config={chartConfig} className="h-[180px] w-full">
+              <BarChart data={weekChartData} barGap={2}>
+                <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="day"
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fontSize: 11 }}
+                />
+                <ChartTooltip
+                  content={
+                    <ChartTooltipContent formatter={(value) => `${value}m`} />
+                  }
+                />
+                <Bar
+                  dataKey="wallClock"
+                  fill="var(--color-wallClock)"
+                  radius={[3, 3, 0, 0]}
+                  maxBarSize={28}
+                />
+                <Bar
+                  dataKey="taskTime"
+                  fill="var(--color-taskTime)"
+                  radius={[3, 3, 0, 0]}
+                  maxBarSize={28}
+                />
+              </BarChart>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+
+        {/* Status distribution */}
+        <Card className="gap-2">
+          <CardHeader>
+            <CardTitle>Task Status</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4 space-y-2.5">
+            {(data?.statusDistribution ?? []).map((item) => (
+              <div key={item.name}>
+                <div className="flex justify-between mb-1">
+                  <span className="text-xs text-muted-foreground">
+                    {item.displayName}
+                  </span>
+                  <span className="text-xs font-medium">{item.count}</span>
+                </div>
+                <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${statusColors[item.name] ?? "bg-primary"}`}
+                    style={{
+                      width: `${Math.round(
+                        (item.count /
+                          Math.max(
+                            1,
+                            (data?.statusDistribution ?? []).reduce(
+                              (s, i) => s + i.count,
+                              0,
+                            ),
+                          )) *
+                          100,
+                      )}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Recent activity */}
+      <Card className="gap-2">
+        <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-semibold">
-              Recent Activity
-            </CardTitle>
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/analytics" className="text-xs">
+            <CardTitle>Recent Activity</CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              asChild
+              className="h-7 text-xs px-2"
+            >
+              <Link href="/analytics">
                 View all <ArrowRight className="ml-1 h-3 w-3" />
               </Link>
             </Button>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-4 pb-4">
           {activities.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-6">
-              No recent activity. Start by creating a task!
+              No activity yet — start a task!
             </p>
           ) : (
-            <div className="space-y-3">
-              {activities.map((activity) => (
+            <div className="space-y-2.5">
+              {activities.map((a) => (
                 <div
-                  key={activity.taskActivityId}
-                  className="flex items-start gap-3 text-sm"
+                  key={a.taskActivityId}
+                  className="flex items-start gap-2.5 text-sm"
                 >
-                  <div className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                  <div className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm truncate">{activity.description}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {format(new Date(activity.createdAt), "MMM d, HH:mm")}
+                    <p className="text-sm leading-snug truncate">
+                      {a.description}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {format(new Date(a.createdAt), "MMM d, HH:mm")}
                     </p>
                   </div>
                 </div>

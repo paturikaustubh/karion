@@ -88,6 +88,7 @@ function SignInForm() {
                 onChange={(e) => setLogin(e.target.value)}
                 required
                 autoComplete="username"
+                autoFocus
                 className="w-full px-4 py-3 rounded-xl text-white text-sm outline-none transition-all"
                 style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", color: "white" }}
                 onFocus={(e) => (e.target.style.borderColor = "rgba(102,126,234,0.7)")}

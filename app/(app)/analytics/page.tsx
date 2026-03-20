@@ -1,70 +1,147 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { apiFetch } from "@/lib/api-client";
-import { Clock, CheckCircle, TrendUp, ChartBar } from "@phosphor-icons/react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
-import { format, subDays } from "date-fns";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  LineChart,
-  Line,
-} from "recharts";
+  format,
+  addDays,
+  addWeeks,
+  addMonths,
+  startOfWeek,
+  endOfWeek,
+  startOfMonth,
+  endOfMonth,
+  parseISO,
+} from "date-fns";
+import { apiFetch } from "@/lib/api-client";
+import { useLiveTime } from "@/lib/hooks/use-live-time";
+import { formatDuration } from "@/lib/time-utils";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
+import { BarChart, Bar, XAxis, CartesianGrid, Cell } from "recharts";
+import { CaretLeft, CaretRight } from "@phosphor-icons/react";
+import type { AnalyticsData } from "@/lib/types";
 
-interface DailyStats {
-  date: string;
-  totalTimeSeconds: number;
-  tasksCompleted: number;
-  commentsAdded: number;
+type Period = "day" | "week" | "month" | "custom";
+
+function getPeriodRange(
+  period: Period,
+  offset: number,
+): { from: string; to: string; label: string } {
+  const now = new Date();
+  if (period === "day") {
+    const d = addDays(now, offset);
+    const s = format(d, "yyyy-MM-dd");
+    return { from: s, to: s, label: format(d, "EEE, MMM d, yyyy") };
+  }
+  if (period === "week") {
+    const base = addWeeks(now, offset);
+    const start = startOfWeek(base, { weekStartsOn: 1 });
+    const end = endOfWeek(base, { weekStartsOn: 1 });
+    return {
+      from: format(start, "yyyy-MM-dd"),
+      to: format(end, "yyyy-MM-dd"),
+      label: `${format(start, "MMM d")} – ${format(end, "MMM d, yyyy")}`,
+    };
+  }
+  if (period === "month") {
+    const base = addMonths(now, offset);
+    return {
+      from: format(startOfMonth(base), "yyyy-MM-dd"),
+      to: format(endOfMonth(base), "yyyy-MM-dd"),
+      label: format(base, "MMMM yyyy"),
+    };
+  }
+  return { from: "", to: "", label: "Custom" };
 }
 
-interface AnalyticsData {
-  dailyStats: DailyStats[];
-  totalTimeSeconds: number;
-  totalTasksCompleted: number;
-  totalCommentsAdded: number;
-  avgDailyTimeSeconds: number;
-  topTasks: { id: string; title: string; totalTimeSeconds: number }[];
-}
+const hoursChartConfig = {
+  wallClock: { label: "Wall Clock (min)", color: "var(--chart-1)" },
+  taskTime: { label: "Task Time (min)", color: "var(--chart-2)" },
+};
+const completionChartConfig = {
+  tasksCompleted: { label: "Completed", color: "var(--chart-3)" },
+};
+const hourlyChartConfig = {
+  seconds: { label: "Minutes", color: "var(--chart-1)" },
+};
 
-function formatDuration(seconds: number): string {
-  const hrs = Math.floor(seconds / 3600);
-  const mins = Math.floor((seconds % 3600) / 60);
-  if (hrs > 0) return `${hrs}h ${mins}m`;
-  return `${mins}m`;
-}
+const severityColors: Record<string, string> = {
+  urgent: "hsl(var(--chart-5))",
+  high: "hsl(var(--chart-4))",
+  medium: "hsl(var(--chart-1))",
+  low: "hsl(var(--chart-2))",
+};
 
-function formatHours(seconds: number): string {
-  return (seconds / 3600).toFixed(1);
+function TotalTimeDisplay({
+  wallClock,
+  taskTime,
+  isRunning,
+  sessionStartedAt,
+}: {
+  wallClock: number;
+  taskTime: number;
+  isRunning: boolean;
+  sessionStartedAt: string | null;
+}) {
+  const liveWall = useLiveTime(wallClock, isRunning, sessionStartedAt);
+  const liveTask = useLiveTime(taskTime, isRunning, sessionStartedAt);
+  return (
+    <>
+      <p className="text-xl font-bold tabular-nums">
+        {formatDuration(liveWall)}
+      </p>
+      <CardDescription>task time: {formatDuration(liveTask)}</CardDescription>
+    </>
+  );
 }
 
 export default function AnalyticsPage() {
-  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [from, setFrom] = useState(
-    format(subDays(new Date(), 30), "yyyy-MM-dd"),
+  const [period, setPeriod] = useState<Period>("week");
+  const [offset, setOffset] = useState(0);
+  const [customFrom, setCustomFrom] = useState(
+    format(addDays(new Date(), -29), "yyyy-MM-dd"),
   );
-  const [to, setTo] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [customTo, setCustomTo] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [appliedCustom, setAppliedCustom] = useState<{
+    from: string;
+    to: string;
+  } | null>(null);
+
+  const [data, setData] = useState<AnalyticsData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const { from, to, label } =
+    period === "custom" && appliedCustom
+      ? {
+          from: appliedCustom.from,
+          to: appliedCustom.to,
+          label: `${appliedCustom.from} → ${appliedCustom.to}`,
+        }
+      : getPeriodRange(period, offset);
 
   const fetchAnalytics = useCallback(async () => {
+    if (!from || !to) return;
     setLoading(true);
     try {
       const res = await apiFetch(`/api/analytics?from=${from}&to=${to}`);
-      const data = await res.json();
-      setAnalytics(data.data || null);
-    } catch (error) {
-      console.error("Failed to fetch analytics:", error);
+      const json = await res.json();
+      setData(json.data ?? null);
+    } catch (e) {
+      console.error(e);
     } finally {
-      setLoading(false);
+      requestAnimationFrame(() => setLoading(false));
     }
   }, [from, to]);
 
@@ -72,264 +149,407 @@ export default function AnalyticsPage() {
     fetchAnalytics();
   }, [fetchAnalytics]);
 
-  const chartData =
-    analytics?.dailyStats.map((d) => ({
-      date: format(new Date(d.date), "MMM d"),
-      hours: parseFloat((d.totalTimeSeconds / 3600).toFixed(2)),
-      tasks: d.tasksCompleted,
-      comments: d.commentsAdded,
-    })) || [];
+  const hoursData = (data?.dailyStats ?? []).map((d) => ({
+    day: format(parseISO(d.date), period === "month" ? "d" : "EEE"),
+    wallClock: loading ? 0 : Math.round(d.wallClockSeconds / 60),
+    taskTime: loading ? 0 : Math.round(d.taskTimeSeconds / 60),
+  }));
 
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="grid gap-4 md:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-24 rounded-xl" />
-          ))}
-        </div>
-        <Skeleton className="h-72 rounded-xl" />
-      </div>
-    );
-  }
+  const completionData = (data?.dailyStats ?? []).map((d) => ({
+    day: format(parseISO(d.date), period === "month" ? "d" : "EEE"),
+    tasksCompleted: loading ? 0 : d.tasksCompleted,
+  }));
+
+  const hourlyData = (data?.hourlyDistribution ?? []).map((h) => ({
+    hour: h.hour,
+    label:
+      h.hour === 0
+        ? "12a"
+        : h.hour < 12
+          ? `${h.hour}a`
+          : h.hour === 12
+            ? "12p"
+            : `${h.hour - 12}p`,
+    seconds: loading ? 0 : Math.round(h.seconds / 60),
+  }));
+
+  const maxTopTask = Math.max(
+    1,
+    ...(data?.topTasks ?? []).map((t) => t.totalTimeSeconds),
+  );
+
+  const blurStyle: React.CSSProperties = {
+    filter: loading ? "blur(8px)" : "none",
+    opacity: loading ? 0.3 : 1,
+    transition: "filter 0.3s ease, opacity 0.3s ease",
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Date Range */}
-      <div className="flex items-end gap-4">
-        <div className="space-y-1.5">
-          <Label className="text-xs">From</Label>
-          <Input
-            type="date"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-            className="w-auto"
-          />
+    <div className="space-y-5">
+      {/* Controls */}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Period tabs */}
+        <div className="flex rounded-lg border overflow-hidden text-xs">
+          {(["day", "week", "month"] as Period[]).map((p) => (
+            <button
+              key={p}
+              onClick={() => {
+                setPeriod(p);
+                setOffset(0);
+              }}
+              className={`px-3 py-1.5 capitalize transition-colors ${
+                period === p
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              {p}
+            </button>
+          ))}
         </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">To</Label>
+
+        {/* Nav arrows + label */}
+        {period !== "custom" && (
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 w-7 p-0"
+              onClick={() => setOffset((o) => o - 1)}
+            >
+              <CaretLeft className="h-3.5 w-3.5" />
+            </Button>
+            <span className="min-w-[140px] text-center text-xs font-medium">
+              {label}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 w-7 p-0"
+              onClick={() => setOffset((o) => o + 1)}
+              disabled={offset >= 0}
+            >
+              <CaretRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )}
+
+        {/* Custom range */}
+        <div className="flex items-center gap-1.5 ml-auto">
           <Input
             type="date"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            className="w-auto"
+            value={customFrom}
+            onChange={(e) => setCustomFrom(e.target.value)}
+            className="text-xs"
           />
+          <span className="text-muted-foreground text-xs">→</span>
+          <Input
+            type="date"
+            value={customTo}
+            onChange={(e) => setCustomTo(e.target.value)}
+            className="text-xs"
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-xs"
+            onClick={() => {
+              setPeriod("custom");
+              setAppliedCustom({ from: customFrom, to: customTo });
+            }}
+          >
+            Apply
+          </Button>
         </div>
       </div>
 
-      {/* Stats Cards */}
-      {analytics && (
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card>
-            <CardContent className="flex items-center gap-3 ">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/40">
-                <Clock
-                  className="h-4 w-4 text-blue-600 dark:text-blue-400"
-                  weight="fill"
-                />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Total Time</p>
-                <p className="text-lg font-bold">
-                  {formatDuration(analytics.totalTimeSeconds)}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="flex items-center gap-3 ">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/40">
-                <CheckCircle
-                  className="h-4 w-4 text-emerald-600 dark:text-emerald-400"
-                  weight="fill"
-                />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Completed</p>
-                <p className="text-lg font-bold">
-                  {analytics.totalTasksCompleted}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="flex items-center gap-3 ">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-900/40">
-                <TrendUp
-                  className="h-4 w-4 text-violet-600 dark:text-violet-400"
-                  weight="fill"
-                />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Avg/Day</p>
-                <p className="text-lg font-bold">
-                  {formatDuration(analytics.avgDailyTimeSeconds)}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="flex items-center gap-3 ">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/40">
-                <ChartBar
-                  className="h-4 w-4 text-amber-600 dark:text-amber-400"
-                  weight="fill"
-                />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Comments</p>
-                <p className="text-lg font-bold">
-                  {analytics.totalCommentsAdded}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Charts */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Time per Day */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">
-              Hours Worked per Day
-            </CardTitle>
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+        <Card className="gap-2">
+          <CardHeader>
+            <CardTitle>Wall Clock</CardTitle>
           </CardHeader>
           <CardContent>
-            {chartData.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-8">
-                No data for this period.
-              </p>
-            ) : (
-              <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={chartData}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    className="stroke-border"
-                  />
-                  <XAxis
-                    dataKey="date"
-                    tick={{ fontSize: 10 }}
-                    className="fill-muted-foreground"
-                  />
-                  <YAxis
-                    tick={{ fontSize: 10 }}
-                    className="fill-muted-foreground"
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "8px",
-                      fontSize: "12px",
-                    }}
-                  />
-                  <Bar
-                    dataKey="hours"
-                    fill="hsl(var(--primary))"
-                    radius={[4, 4, 0, 0]}
-                    name="Hours"
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
+            <span style={blurStyle}>
+              {data ? (
+                <TotalTimeDisplay
+                  wallClock={data.totalWallClockSeconds}
+                  taskTime={data.totalTaskTimeSeconds}
+                  isRunning={data.isRunning}
+                  sessionStartedAt={data.sessionStartedAt}
+                />
+              ) : (
+                <p className="text-xl font-bold">—</p>
+              )}
+            </span>
           </CardContent>
         </Card>
 
-        {/* Tasks Completed per Day */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">
-              Tasks Completed per Day
-            </CardTitle>
+        <Card className="gap-2">
+          <CardHeader>
+            <CardTitle>Efficiency</CardTitle>
           </CardHeader>
           <CardContent>
-            {chartData.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-8">
-                No data for this period.
+            <span style={blurStyle}>
+              <p
+                className={`text-xl font-bold ${(data?.efficiencyMultiplier ?? 1) > 1 ? "text-emerald-500" : ""}`}
+              >
+                {data ? `${data.efficiencyMultiplier}x` : "—"}
               </p>
-            ) : (
-              <ResponsiveContainer width="100%" height={240}>
-                <LineChart data={chartData}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    className="stroke-border"
-                  />
-                  <XAxis
-                    dataKey="date"
-                    tick={{ fontSize: 10 }}
-                    className="fill-muted-foreground"
-                  />
-                  <YAxis
-                    tick={{ fontSize: 10 }}
-                    className="fill-muted-foreground"
-                    allowDecimals={false}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "8px",
-                      fontSize: "12px",
-                    }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="tasks"
-                    stroke="hsl(var(--chart-2))"
-                    strokeWidth={2}
-                    dot={{ r: 3 }}
-                    name="Tasks"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
+            </span>
+            <CardDescription>task ÷ clock</CardDescription>
+          </CardContent>
+        </Card>
+
+        <Card className="gap-2">
+          <CardHeader>
+            <CardTitle>Completed</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <span style={blurStyle}>
+              <p className="text-xl font-bold">
+                {data?.totalTasksCompleted ?? "—"}
+              </p>
+            </span>
+            <CardDescription>tasks</CardDescription>
+          </CardContent>
+        </Card>
+
+        <Card className="gap-2">
+          <CardHeader>
+            <CardTitle>Avg / Day</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <span style={blurStyle}>
+              <p className="text-xl font-bold">
+                {data ? formatDuration(data.avgDailyWallClockSeconds) : "—"}
+              </p>
+            </span>
+            <CardDescription>active days only</CardDescription>
+          </CardContent>
+        </Card>
+
+        <Card className="gap-2">
+          <CardHeader>
+            <CardTitle>Comments</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <span style={blurStyle}>
+              <p className="text-xl font-bold">
+                {data?.totalCommentsAdded ?? "—"}
+              </p>
+            </span>
+            <CardDescription>added</CardDescription>
           </CardContent>
         </Card>
       </div>
 
-      {/* Top Tasks */}
-      {analytics && analytics.topTasks.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">
-              Top Tasks by Time
-            </CardTitle>
+      {/* Charts row 1: hours + completion */}
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        {/* Hours worked */}
+        <Card className="gap-2">
+          <CardHeader>
+            <CardTitle>Hours Worked</CardTitle>
+            <CardDescription>
+              <span className="flex gap-3">
+                <span className="flex items-center gap-1">
+                  <span className="inline-block h-2 w-2 rounded-sm bg-[var(--chart-1)]" />
+                  Wall clock
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="inline-block h-2 w-2 rounded-sm bg-[var(--chart-2)]" />
+                  Task time
+                </span>
+              </span>
+            </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {analytics.topTasks.map((task, index) => {
-                const maxTime = analytics.topTasks[0].totalTimeSeconds;
-                const widthPercent =
-                  maxTime > 0
-                    ? Math.max(5, (task.totalTimeSeconds / maxTime) * 100)
-                    : 5;
+          <CardContent className="px-2 pb-3">
+            <ChartContainer
+              config={hoursChartConfig}
+              className="h-[160px] w-full"
+            >
+              <BarChart data={hoursData} barGap={2}>
+                <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="day"
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fontSize: 10 }}
+                />
+                <ChartTooltip
+                  content={<ChartTooltipContent formatter={(v) => `${v}m`} />}
+                />
+                <Bar
+                  dataKey="wallClock"
+                  fill="var(--color-wallClock)"
+                  radius={[3, 3, 0, 0]}
+                  maxBarSize={20}
+                  animationDuration={500}
+                />
+                <Bar
+                  dataKey="taskTime"
+                  fill="var(--color-taskTime)"
+                  radius={[3, 3, 0, 0]}
+                  maxBarSize={20}
+                  animationDuration={500}
+                />
+              </BarChart>
+            </ChartContainer>
+          </CardContent>
+        </Card>
 
-                return (
-                  <div key={task.id} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="truncate max-w-[70%]">{task.title}</span>
-                      <span className="text-muted-foreground shrink-0">
-                        {formatDuration(task.totalTimeSeconds)}
-                      </span>
-                    </div>
-                    <div className="h-2 rounded-full bg-muted overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-primary transition-all"
-                        style={{ width: `${widthPercent}%` }}
-                      />
-                    </div>
+        {/* Task completion */}
+        <Card className="gap-2">
+          <CardHeader>
+            <CardTitle>Tasks Completed</CardTitle>
+          </CardHeader>
+          <CardContent className="px-2 pb-3">
+            <ChartContainer
+              config={completionChartConfig}
+              className="h-[160px] w-full"
+            >
+              <BarChart data={completionData}>
+                <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="day"
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fontSize: 10 }}
+                />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Bar
+                  dataKey="tasksCompleted"
+                  fill="var(--color-tasksCompleted)"
+                  radius={[3, 3, 0, 0]}
+                  maxBarSize={20}
+                  animationDuration={500}
+                />
+              </BarChart>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Charts row 2: top tasks + priority */}
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        {/* Top tasks by time */}
+        <Card className="gap-2">
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle>Top Tasks by Time</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4 space-y-2.5">
+            {(data?.topTasks ?? []).slice(0, 6).map((t) => (
+              <div key={t.taskId}>
+                <div className="flex justify-between mb-1">
+                  <span className="text-xs truncate max-w-[70%]">
+                    {t.taskName}
+                  </span>
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {formatDuration(t.totalTimeSeconds)}
+                  </span>
+                </div>
+                <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-[hsl(var(--chart-1))]"
+                    style={{
+                      width: loading
+                        ? "0%"
+                        : `${Math.round((t.totalTimeSeconds / maxTopTask) * 100)}%`,
+                      transition: "width 0.5s ease",
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+            {(data?.topTasks ?? []).length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-4">
+                No time logged in this period.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Priority distribution */}
+        <Card className="gap-2">
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle>Tasks by Priority</CardTitle>
+            <CardDescription>tasks worked on in period</CardDescription>
+          </CardHeader>
+          <CardContent className="px-4 pb-4 space-y-2.5">
+            {(data?.severityDistribution ?? []).map((item) => {
+              const total = (data?.severityDistribution ?? []).reduce(
+                (s, i) => s + i.count,
+                0,
+              );
+              return (
+                <div key={item.name}>
+                  <div className="flex justify-between mb-1">
+                    <span className="text-xs">{item.displayName}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {item.count}
+                    </span>
                   </div>
-                );
-              })}
-            </div>
+                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: loading
+                          ? "0%"
+                          : `${Math.round((item.count / Math.max(1, total)) * 100)}%`,
+                        background:
+                          severityColors[item.name] ?? "hsl(var(--chart-1))",
+                        transition: "width 0.5s ease",
+                      }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
           </CardContent>
         </Card>
-      )}
+      </div>
+
+      {/* Productive hours heatmap */}
+      <Card className="gap-2">
+        <CardHeader>
+          <CardTitle>Most Productive Hours</CardTitle>
+          <CardDescription>
+            Average minutes logged per hour of day (UTC)
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="px-2 pb-3">
+          <ChartContainer
+            config={hourlyChartConfig}
+            className="h-[120px] w-full"
+          >
+            <BarChart data={hourlyData}>
+              <CartesianGrid vertical={false} strokeDasharray="3 3" />
+              <XAxis
+                dataKey="label"
+                tickLine={false}
+                axisLine={false}
+                tick={{ fontSize: 9 }}
+                interval={2}
+              />
+              <ChartTooltip
+                content={
+                  <ChartTooltipContent
+                    labelFormatter={(label) => `${label}`}
+                    formatter={(v) => [`${v}m`, "Time"]}
+                  />
+                }
+              />
+              <Bar
+                dataKey="seconds"
+                fill="var(--color-seconds)"
+                radius={[2, 2, 0, 0]}
+                maxBarSize={16}
+                animationDuration={500}
+              />
+            </BarChart>
+          </ChartContainer>
+        </CardContent>
+      </Card>
     </div>
   );
 }
