@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/paturikaustubh/karion/compare/karion-v0.2.0...karion-v0.2.1) (2026-03-20)
+
+
+### Bug Fixes
+
+* fix sync workflow push permissions using PAT ([b4224d1](https://github.com/paturikaustubh/karion/commit/b4224d1f440842afab6a033185abe5cdc1c36d52))
+
 ## [0.2.0](https://github.com/paturikaustubh/karion/compare/karion-v0.1.0...karion-v0.2.0) (2026-03-20)
 
 
