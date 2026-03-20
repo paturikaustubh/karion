@@ -102,6 +102,7 @@ export default function SignUpPage() {
                 value={form.fullName}
                 onChange={set("fullName")}
                 required
+                autoFocus
                 className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
                 style={inputStyle}
                 onFocus={(e) => (e.target.style.borderColor = "rgba(102,126,234,0.7)")}
