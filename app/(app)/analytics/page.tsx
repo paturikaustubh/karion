@@ -24,7 +24,6 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   ChartContainer,
   ChartTooltip,
@@ -144,7 +143,7 @@ export default function AnalyticsPage() {
     } catch (e) {
       console.error(e);
     } finally {
-      setLoading(false);
+      requestAnimationFrame(() => setLoading(false));
     }
   }, [from, to]);
 
@@ -154,13 +153,13 @@ export default function AnalyticsPage() {
 
   const hoursData = (data?.dailyStats ?? []).map((d) => ({
     day: format(parseISO(d.date), period === "month" ? "d" : "EEE"),
-    wallClock: Math.round(d.wallClockSeconds / 60),
-    taskTime: Math.round(d.taskTimeSeconds / 60),
+    wallClock: loading ? 0 : Math.round(d.wallClockSeconds / 60),
+    taskTime: loading ? 0 : Math.round(d.taskTimeSeconds / 60),
   }));
 
   const completionData = (data?.dailyStats ?? []).map((d) => ({
     day: format(parseISO(d.date), period === "month" ? "d" : "EEE"),
-    tasksCompleted: d.tasksCompleted,
+    tasksCompleted: loading ? 0 : d.tasksCompleted,
   }));
 
   const hourlyData = (data?.hourlyDistribution ?? []).map((h) => ({
@@ -173,7 +172,7 @@ export default function AnalyticsPage() {
           : h.hour === 12
             ? "12p"
             : `${h.hour - 12}p`,
-    seconds: Math.round(h.seconds / 60),
+    seconds: loading ? 0 : Math.round(h.seconds / 60),
   }));
 
   const maxTopTask = Math.max(
@@ -181,23 +180,11 @@ export default function AnalyticsPage() {
     ...(data?.topTasks ?? []).map((t) => t.totalTimeSeconds),
   );
 
-  if (loading) {
-    return (
-      <div className="space-y-5">
-        <Skeleton className="h-10 w-full rounded-xl" />
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <Skeleton key={i} className="h-16 rounded-xl" />
-          ))}
-        </div>
-        <div className="grid gap-3 md:grid-cols-2">
-          <Skeleton className="h-56 rounded-xl" />
-          <Skeleton className="h-56 rounded-xl" />
-        </div>
-        <Skeleton className="h-40 rounded-xl" />
-      </div>
-    );
-  }
+  const blurStyle: React.CSSProperties = {
+    filter: loading ? "blur(8px)" : "none",
+    opacity: loading ? 0.3 : 1,
+    transition: "filter 0.3s ease, opacity 0.3s ease",
+  };
 
   return (
     <div className="space-y-5">
@@ -285,16 +272,18 @@ export default function AnalyticsPage() {
             <CardTitle>Wall Clock</CardTitle>
           </CardHeader>
           <CardContent>
-            {data ? (
-              <TotalTimeDisplay
-                wallClock={data.totalWallClockSeconds}
-                taskTime={data.totalTaskTimeSeconds}
-                isRunning={data.isRunning}
-                sessionStartedAt={data.sessionStartedAt}
-              />
-            ) : (
-              <p className="text-xl font-bold">—</p>
-            )}
+            <span style={blurStyle}>
+              {data ? (
+                <TotalTimeDisplay
+                  wallClock={data.totalWallClockSeconds}
+                  taskTime={data.totalTaskTimeSeconds}
+                  isRunning={data.isRunning}
+                  sessionStartedAt={data.sessionStartedAt}
+                />
+              ) : (
+                <p className="text-xl font-bold">—</p>
+              )}
+            </span>
           </CardContent>
         </Card>
 
@@ -303,11 +292,13 @@ export default function AnalyticsPage() {
             <CardTitle>Efficiency</CardTitle>
           </CardHeader>
           <CardContent>
-            <p
-              className={`text-xl font-bold ${(data?.efficiencyMultiplier ?? 1) > 1 ? "text-emerald-500" : ""}`}
-            >
-              {data ? `${data.efficiencyMultiplier}x` : "—"}
-            </p>
+            <span style={blurStyle}>
+              <p
+                className={`text-xl font-bold ${(data?.efficiencyMultiplier ?? 1) > 1 ? "text-emerald-500" : ""}`}
+              >
+                {data ? `${data.efficiencyMultiplier}x` : "—"}
+              </p>
+            </span>
             <CardDescription>task ÷ clock</CardDescription>
           </CardContent>
         </Card>
@@ -317,9 +308,11 @@ export default function AnalyticsPage() {
             <CardTitle>Completed</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-xl font-bold">
-              {data?.totalTasksCompleted ?? "—"}
-            </p>
+            <span style={blurStyle}>
+              <p className="text-xl font-bold">
+                {data?.totalTasksCompleted ?? "—"}
+              </p>
+            </span>
             <CardDescription>tasks</CardDescription>
           </CardContent>
         </Card>
@@ -329,9 +322,11 @@ export default function AnalyticsPage() {
             <CardTitle>Avg / Day</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-xl font-bold">
-              {data ? formatDuration(data.avgDailyWallClockSeconds) : "—"}
-            </p>
+            <span style={blurStyle}>
+              <p className="text-xl font-bold">
+                {data ? formatDuration(data.avgDailyWallClockSeconds) : "—"}
+              </p>
+            </span>
             <CardDescription>active days only</CardDescription>
           </CardContent>
         </Card>
@@ -341,9 +336,11 @@ export default function AnalyticsPage() {
             <CardTitle>Comments</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-xl font-bold">
-              {data?.totalCommentsAdded ?? "—"}
-            </p>
+            <span style={blurStyle}>
+              <p className="text-xl font-bold">
+                {data?.totalCommentsAdded ?? "—"}
+              </p>
+            </span>
             <CardDescription>added</CardDescription>
           </CardContent>
         </Card>
@@ -389,12 +386,14 @@ export default function AnalyticsPage() {
                   fill="var(--color-wallClock)"
                   radius={[3, 3, 0, 0]}
                   maxBarSize={20}
+                  animationDuration={500}
                 />
                 <Bar
                   dataKey="taskTime"
                   fill="var(--color-taskTime)"
                   radius={[3, 3, 0, 0]}
                   maxBarSize={20}
+                  animationDuration={500}
                 />
               </BarChart>
             </ChartContainer>
@@ -425,6 +424,7 @@ export default function AnalyticsPage() {
                   fill="var(--color-tasksCompleted)"
                   radius={[3, 3, 0, 0]}
                   maxBarSize={20}
+                  animationDuration={500}
                 />
               </BarChart>
             </ChartContainer>
@@ -454,7 +454,10 @@ export default function AnalyticsPage() {
                   <div
                     className="h-full rounded-full bg-[hsl(var(--chart-1))]"
                     style={{
-                      width: `${Math.round((t.totalTimeSeconds / maxTopTask) * 100)}%`,
+                      width: loading
+                        ? "0%"
+                        : `${Math.round((t.totalTimeSeconds / maxTopTask) * 100)}%`,
+                      transition: "width 0.5s ease",
                     }}
                   />
                 </div>
@@ -492,9 +495,12 @@ export default function AnalyticsPage() {
                     <div
                       className="h-full rounded-full"
                       style={{
-                        width: `${Math.round((item.count / Math.max(1, total)) * 100)}%`,
+                        width: loading
+                          ? "0%"
+                          : `${Math.round((item.count / Math.max(1, total)) * 100)}%`,
                         background:
                           severityColors[item.name] ?? "hsl(var(--chart-1))",
+                        transition: "width 0.5s ease",
                       }}
                     />
                   </div>
@@ -540,6 +546,7 @@ export default function AnalyticsPage() {
                 fill="var(--color-seconds)"
                 radius={[2, 2, 0, 0]}
                 maxBarSize={16}
+                animationDuration={500}
               />
             </BarChart>
           </ChartContainer>
