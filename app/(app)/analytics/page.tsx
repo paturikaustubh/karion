@@ -10,13 +10,11 @@ import {
   endOfWeek,
   startOfMonth,
   endOfMonth,
-  startOfDay,
-  endOfDay,
   parseISO,
 } from "date-fns";
 import { apiFetch } from "@/lib/api-client";
 import { useLiveTime } from "@/lib/hooks/use-live-time";
-import { formatDuration, mergeIntervals } from "@/lib/time-utils";
+import { formatDuration } from "@/lib/time-utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

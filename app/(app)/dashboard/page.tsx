@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { format, subDays } from "date-fns";
+import { format } from "date-fns";
 import { apiFetch } from "@/lib/api-client";
 import { useLiveTime } from "@/lib/hooks/use-live-time";
 import { formatDuration } from "@/lib/time-utils";
