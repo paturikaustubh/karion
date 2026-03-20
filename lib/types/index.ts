@@ -115,22 +115,72 @@ export interface ReportConfigItem {
 
 export interface DailyStats {
   date: string;
-  totalTimeSeconds: number;
+  taskTimeSeconds: number;      // sum of all session durations for the day
+  wallClockSeconds: number;     // merged intervals (deduped)
   tasksCompleted: number;
   commentsAdded: number;
 }
 
+export interface DistributionItem {
+  name: string;        // statusName / severityName
+  displayName: string;
+  count: number;
+}
+
+export interface HourlyBucket {
+  hour: number;        // 0–23
+  seconds: number;
+}
+
 export interface AnalyticsData {
   dailyStats: DailyStats[];
-  totalTimeSeconds: number;
+  // task time = sum of all session durations (can exceed 24h if parallel)
+  totalTaskTimeSeconds: number;
+  // wall clock = merged intervals (never exceeds real time elapsed)
+  totalWallClockSeconds: number;
+  // efficiencyMultiplier = totalTaskTime / totalWallClock (1.0x if no parallel)
+  efficiencyMultiplier: number;
+  isRunning: boolean;
+  sessionStartedAt: string | null;
   totalTasksCompleted: number;
   totalCommentsAdded: number;
-  avgDailyTimeSeconds: number;
+  avgDailyWallClockSeconds: number;
   topTasks: {
     taskId: string;
     taskName: string;
     totalTimeSeconds: number;
   }[];
+  statusDistribution: DistributionItem[];
+  severityDistribution: DistributionItem[];
+  hourlyDistribution: HourlyBucket[];
+}
+
+// ─── Dashboard Types ──────────────────────────────────────────────────────────
+
+export interface DashboardData {
+  // Today's snapshot
+  todayWallClockSeconds: number;
+  todayTaskTimeSeconds: number;
+  todayIsRunning: boolean;
+  todaySessionStartedAt: string | null;
+  todayCompleted: number;
+  todayDueCount: number;
+  overdueCount: number;
+  activeTask: {
+    taskId: string;
+    taskName: string;
+    sessionStartedAt: string;
+    taskTimeSeconds: number;
+  } | null;
+  // This week
+  weekDailyStats: { date: string; wallClockSeconds: number; taskTimeSeconds: number }[];
+  weekWallClockSeconds: number;
+  weekTaskTimeSeconds: number;
+  weekIsRunning: boolean;
+  weekSessionStartedAt: string | null;
+  weekEfficiency: number;
+  // Status snapshot (all open tasks)
+  statusDistribution: DistributionItem[];
 }
 
 // ─── API Response Types ───────────────────────────────────────────────────────
