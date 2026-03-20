@@ -126,7 +126,7 @@ function ChartTooltipContent({
     nameKey?: string
     labelKey?: string
     label?: string | number
-    payload?: RechartsPrimitive.TooltipProps<number | string, string>["payload"]
+    payload?: Array<{ dataKey?: string | number; name?: string | number; value?: number | string; color?: string; fill?: string; payload?: Record<string, unknown> }>
   }) {
   const { config } = useChart()
 
@@ -146,7 +146,7 @@ function ChartTooltipContent({
     if (labelFormatter) {
       return (
         <div className={cn("font-medium", labelClassName)}>
-          {labelFormatter(value, payload)}
+          {labelFormatter(value, payload as any)}
         </div>
       )
     }

@@ -102,9 +102,7 @@ function TotalTimeDisplay({
       <p className="text-xl font-bold tabular-nums">
         {formatDuration(liveWall)}
       </p>
-      <p className="text-muted-foreground">
-        task time: {formatDuration(liveTask)}
-      </p>
+      <CardDescription>task time: {formatDuration(liveTask)}</CardDescription>
     </>
   );
 }
@@ -242,19 +240,19 @@ export default function AnalyticsPage() {
             type="date"
             value={customFrom}
             onChange={(e) => setCustomFrom(e.target.value)}
-            className="h-7 w-32 text-xs"
+            className="text-xs"
           />
           <span className="text-muted-foreground text-xs">→</span>
           <Input
             type="date"
             value={customTo}
             onChange={(e) => setCustomTo(e.target.value)}
-            className="h-7 w-32 text-xs"
+            className="text-xs"
           />
           <Button
             size="sm"
             variant="outline"
-            className="h-7 text-xs px-2.5"
+            className="text-xs"
             onClick={() => {
               setPeriod("custom");
               setAppliedCustom({ from: customFrom, to: customTo });
