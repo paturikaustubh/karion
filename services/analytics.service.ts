@@ -44,13 +44,13 @@ export async function getAnalytics(
 
     const taskTimeSeconds = daySessions.reduce((sum: number, s: any) => {
       if (s.duration) return sum + s.duration;
-      if (s.activeSession)
-        return sum + Math.floor((Date.now() - s.startTime.getTime()) / 1000);
       return sum;
     }, 0);
 
     const wallClockSeconds = mergeIntervals(
-      daySessions.map((s: any) => ({ startTime: s.startTime, endTime: s.endTime }))
+      daySessions
+        .filter((s: any) => s.endTime !== null)
+        .map((s: any) => ({ startTime: s.startTime, endTime: s.endTime }))
     );
 
     const tasksCompleted = (completedActivities as any[]).filter(
@@ -67,7 +67,9 @@ export async function getAnalytics(
   // ── Totals ─────────────────────────────────────────────────────────────────
   const totalTaskTimeSeconds = dailyStats.reduce((s, d) => s + d.taskTimeSeconds, 0);
   const totalWallClockSeconds = mergeIntervals(
-    (taskSessions as any[]).map((s) => ({ startTime: s.startTime, endTime: s.endTime }))
+    (taskSessions as any[])
+      .filter((s) => s.endTime !== null)
+      .map((s) => ({ startTime: s.startTime, endTime: s.endTime }))
   );
   const efficiencyMultiplier =
     totalWallClockSeconds > 0
@@ -145,11 +147,7 @@ export async function getAnalytics(
   const hourlyMap = new Array(24).fill(0);
   for (const session of taskSessions as any[]) {
     const hour = session.startTime.getUTCHours();
-    const dur =
-      session.duration ??
-      (session.activeSession
-        ? Math.floor((Date.now() - session.startTime.getTime()) / 1000)
-        : 0);
+    const dur = session.duration ?? 0;
     hourlyMap[hour] += dur;
   }
   const hourlyDistribution: HourlyBucket[] = hourlyMap.map((seconds, hour) => ({

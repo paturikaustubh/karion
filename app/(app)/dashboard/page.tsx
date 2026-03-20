@@ -254,8 +254,8 @@ export default function DashboardPage() {
             {data && (
               <p className="text-xs text-muted-foreground">
                 {formatDuration(data.weekWallClockSeconds)} wall clock
-                {data.weekEfficiency > 1 && (
-                  <span className="ml-2 text-emerald-500 font-medium">
+                {data.weekEfficiency !== 1 && (
+                  <span className={`ml-2 font-medium ${data.weekEfficiency > 1 ? "text-emerald-500" : "text-amber-500"}`}>
                     {data.weekEfficiency}x efficiency
                   </span>
                 )}

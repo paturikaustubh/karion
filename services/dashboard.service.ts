@@ -40,12 +40,12 @@ export async function getDashboard(userId: number): Promise<DashboardData> {
 
   // ── Today ──────────────────────────────────────────────────────────────────
   const todayWallClockSeconds = mergeIntervals(
-    (todaySessions as any[]).map((s) => ({ startTime: s.startTime, endTime: s.endTime }))
+    (todaySessions as any[])
+      .filter((s) => s.endTime !== null)
+      .map((s) => ({ startTime: s.startTime, endTime: s.endTime }))
   );
   const todayTaskTimeSeconds = (todaySessions as any[]).reduce((sum: number, s: any) => {
     if (s.duration) return sum + s.duration;
-    if (s.activeSession)
-      return sum + Math.floor((Date.now() - s.startTime.getTime()) / 1000);
     return sum;
   }, 0);
 
@@ -92,19 +92,21 @@ export async function getDashboard(userId: number): Promise<DashboardData> {
       (s) => s.startTime >= dayStart && s.startTime <= dayEnd
     );
     const wallClockSeconds = mergeIntervals(
-      daySessions.map((s: any) => ({ startTime: s.startTime, endTime: s.endTime }))
+      daySessions
+        .filter((s: any) => s.endTime !== null)
+        .map((s: any) => ({ startTime: s.startTime, endTime: s.endTime }))
     );
     const taskTimeSeconds = daySessions.reduce((sum: number, s: any) => {
       if (s.duration) return sum + s.duration;
-      if (s.activeSession)
-        return sum + Math.floor((Date.now() - s.startTime.getTime()) / 1000);
       return sum;
     }, 0);
     weekDays.push({ date: dayStr, wallClockSeconds, taskTimeSeconds });
   }
 
   const weekWallClockSeconds = mergeIntervals(
-    (weekSessions as any[]).map((s) => ({ startTime: s.startTime, endTime: s.endTime }))
+    (weekSessions as any[])
+      .filter((s) => s.endTime !== null)
+      .map((s) => ({ startTime: s.startTime, endTime: s.endTime }))
   );
   const weekTaskTimeSeconds = weekDays.reduce((s, d) => s + d.taskTimeSeconds, 0);
   const weekActiveSession = (weekSessions as any[]).find((s) => s.activeSession);
