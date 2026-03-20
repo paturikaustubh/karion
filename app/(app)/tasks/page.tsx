@@ -354,14 +354,10 @@ function TasksContent() {
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-<<<<<<< HEAD
             <div
               key={i}
               className="rounded-xl border bg-card p-4 flex flex-col gap-3"
             >
-=======
-            <div key={i} className="rounded-xl border bg-card p-4 flex flex-col gap-3">
->>>>>>> 8f7d60f (feat: reports page cards fixed)
               {/* Header: title + priority badge */}
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 space-y-1.5">
@@ -489,14 +485,10 @@ export default function TasksPage() {
       fallback={
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {[1, 2].map((i) => (
-<<<<<<< HEAD
             <div
               key={i}
               className="rounded-xl border bg-card p-4 flex flex-col gap-3"
             >
-=======
-            <div key={i} className="rounded-xl border bg-card p-4 flex flex-col gap-3">
->>>>>>> 8f7d60f (feat: reports page cards fixed)
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 space-y-1.5">
                   <Skeleton className="h-3.5 w-3/4 rounded" />
