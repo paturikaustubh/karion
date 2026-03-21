@@ -12,7 +12,6 @@ import {
   MagnifyingGlass,
   Funnel,
   Clock,
-  ChatText,
 } from "@phosphor-icons/react";
 import { useLiveTime } from "@/lib/hooks/use-live-time";
 import { formatStopwatch } from "@/lib/time-utils";
@@ -58,16 +57,6 @@ interface TaskItem {
   _count: { comments: number; timeSessions: number };
 }
 
-const statusColors: Record<string, string> = {
-  todo: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
-  in_progress:
-    "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
-  blocked:
-    "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
-  completed:
-    "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
-};
-
 const priorityColors: Record<string, string> = {
   low: "text-zinc-700 dark:text-zinc-300",
   medium: "text-blue-700 dark:text-blue-300",
@@ -94,8 +83,16 @@ function TaskCard({
 }) {
   const isActive = !!activeInfo;
   const sev = task.taskSeverity.severityName;
-  const totalLiveTime = useLiveTime(task.totalWorkTime, isActive, activeInfo?.startTime ?? null);
-  const sessionLiveTime = useLiveTime(0, isActive, activeInfo?.startTime ?? null);
+  const totalLiveTime = useLiveTime(
+    task.totalWorkTime,
+    isActive,
+    activeInfo?.startTime ?? null,
+  );
+  const sessionLiveTime = useLiveTime(
+    0,
+    isActive,
+    activeInfo?.startTime ?? null,
+  );
 
   return (
     <Card className="cursor-pointer" onClick={onClick}>
@@ -150,9 +147,7 @@ function TaskCard({
             className="text-xs"
             disabled={!isActive && task.taskStatus.precedence > 1}
             onClick={(e) =>
-              isActive
-                ? onStop(e, task.taskId)
-                : onStart(e, task.taskId)
+              isActive ? onStop(e, task.taskId) : onStart(e, task.taskId)
             }
           >
             {isActive ? (
@@ -192,14 +187,16 @@ function TasksContent() {
   const [newDueDate, setNewDueDate] = useState("");
   const [creating, setCreating] = useState(false);
 
-  const [activeSessions, setActiveSessions] = useState<Map<string, { sessionId: string; startTime: string }>>(new Map());
+  const [activeSessions, setActiveSessions] = useState<
+    Map<string, { sessionId: string; startTime: string }>
+  >(new Map());
 
   // Set form defaults once lookups are available
   useEffect(() => {
     if (priorities.length > 0 && !newPriority)
       setNewPriority(priorities[0].value);
     if (statuses.length > 0 && !newStatus) setNewStatus(statuses[0].value);
-  }, [statuses, priorities]);
+  }, [statuses, priorities, newPriority, newStatus]);
 
   const fetchTasks = useCallback(async () => {
     try {
@@ -224,18 +221,25 @@ function TasksContent() {
     fetchTasks();
   }, [fetchTasks]);
 
-  useEffect(() => {
+  const fetchActiveSessions = useCallback(() => {
     apiFetch("/api/time-sessions/active")
       .then((res) => res.json())
       .then((data) => {
         const map = new Map<string, { sessionId: string; startTime: string }>();
         for (const s of data.data ?? []) {
-          map.set(s.task.taskId, { sessionId: s.taskSessionId, startTime: s.startTime });
+          map.set(s.task.taskId, {
+            sessionId: s.taskSessionId,
+            startTime: s.startTime,
+          });
         }
         setActiveSessions(map);
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    fetchActiveSessions();
+  }, [fetchActiveSessions]);
 
   const handleCreate = async (redirect = false) => {
     if (!newTitle.trim()) return;
@@ -279,6 +283,7 @@ function TasksContent() {
       body: JSON.stringify({ status: newStatus }),
     });
     fetchTasks();
+    fetchActiveSessions();
   };
 
   const startTimer = async (e: React.MouseEvent, taskId: string) => {
@@ -293,15 +298,12 @@ function TasksContent() {
         new Map(prev).set(taskId, {
           sessionId: data.data.taskSessionId,
           startTime: data.data.startTime ?? new Date().toISOString(),
-        })
+        }),
       );
     fetchTasks();
   };
 
-  const stopTimer = async (
-    e: React.MouseEvent,
-    taskId: string,
-  ) => {
+  const stopTimer = async (e: React.MouseEvent, taskId: string) => {
     e.preventDefault();
     e.stopPropagation();
     const sessionId = activeSessions.get(taskId)?.sessionId;
@@ -335,7 +337,7 @@ function TasksContent() {
 
         <div className="flex items-center gap-2">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-32.5">
+            <SelectTrigger>
               <Funnel className="mr-2 h-3.5 w-3.5" />
               <SelectValue placeholder="Status" />
             </SelectTrigger>
@@ -350,7 +352,7 @@ function TasksContent() {
           </Select>
 
           <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="w-32.5">
+            <SelectTrigger>
               <SelectValue placeholder="Priority" />
             </SelectTrigger>
             <SelectContent>

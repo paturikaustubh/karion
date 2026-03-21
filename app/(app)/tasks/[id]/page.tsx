@@ -23,7 +23,6 @@ import {
 } from "@/components/ui/table";
 import { useUserSettings } from "@/components/providers/user-settings-provider";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -105,16 +104,6 @@ function LiveSessionDuration({ startTime }: { startTime: string }) {
     </span>
   );
 }
-
-const statusColors: Record<string, string> = {
-  todo: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
-  in_progress:
-    "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
-  blocked:
-    "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
-  completed:
-    "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
-};
 
 const activityIcons: Record<string, string> = {
   task_created: "🆕",

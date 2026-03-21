@@ -31,9 +31,17 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import {
-  BarChart, Bar, XAxis, CartesianGrid, Cell,
-  PieChart, Pie, Tooltip,
-  AreaChart, Area, YAxis,
+  BarChart,
+  Bar,
+  XAxis,
+  CartesianGrid,
+  Cell,
+  PieChart,
+  Pie,
+  Tooltip,
+  AreaChart,
+  Area,
+  YAxis,
   Treemap,
   ResponsiveContainer,
 } from "recharts";
@@ -83,9 +91,9 @@ const efficiencySparkConfig = {
 // Canonical priority colors — chart vars are all blue/purple, these match app-wide severity colors
 const priorityColors: Record<string, string> = {
   urgent: "#ef4444",
-  high:   "#f59e0b",
+  high: "#f59e0b",
   medium: "#3b82f6",
-  low:    "#71717a",
+  low: "#71717a",
 };
 
 const CHART_COLORS = [
@@ -157,7 +165,14 @@ function WorkPatternHeatmap({
 }
 
 // ── Treemap custom cell renderer ────────────────────────────────────────────
-function CustomTreemapContent(props: any) {
+function CustomTreemapContent(props: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  name: string;
+  index: number;
+}) {
   const { x, y, width, height, name, index } = props;
   const fill = CHART_COLORS[(index ?? 0) % CHART_COLORS.length];
   return (
@@ -212,17 +227,12 @@ export default function AnalyticsPage() {
     data?.isRunning ?? false,
     data?.sessionStartedAt ?? null,
   );
-  const activeElapsed = useLiveTime(
-    0,
-    data?.isRunning ?? false,
-    data?.sessionStartedAt ?? null,
-  );
-  const liveEfficiency = liveWall > 0
-    ? Math.round((liveTask / liveWall) * 100) / 100
-    : data?.efficiencyMultiplier ?? 1;
-  const liveAvg = (data?.activeDays ?? 0) > 0
-    ? Math.floor(liveWall / data!.activeDays)
-    : 0;
+  const liveEfficiency =
+    liveWall > 0
+      ? Math.round((liveTask / liveWall) * 100) / 100
+      : (data?.efficiencyMultiplier ?? 1);
+  const liveAvg =
+    (data?.activeDays ?? 0) > 0 ? Math.floor(liveWall / data!.activeDays) : 0;
 
   const { from, to, label } =
     period === "custom" && appliedCustom
@@ -275,8 +285,8 @@ export default function AnalyticsPage() {
   // All days in the current period (for heatmap row order)
   const periodDays =
     from && to
-      ? eachDayOfInterval({ start: parseISO(from), end: parseISO(to) }).map((d) =>
-          format(d, "yyyy-MM-dd")
+      ? eachDayOfInterval({ start: parseISO(from), end: parseISO(to) }).map(
+          (d) => format(d, "yyyy-MM-dd"),
         )
       : [];
 
@@ -284,7 +294,7 @@ export default function AnalyticsPage() {
 
   const sessionMaxCount = Math.max(
     1,
-    ...(data?.sessionStats?.distribution ?? []).map((b) => b.count)
+    ...(data?.sessionStats?.distribution ?? []).map((b) => b.count),
   );
 
   const blurStyle: React.CSSProperties = {
@@ -385,7 +395,9 @@ export default function AnalyticsPage() {
                   <p className="text-xl font-bold tabular-nums">
                     {formatStopwatch(liveWall)}
                   </p>
-                  <CardDescription>task time: {formatStopwatch(liveTask)}</CardDescription>
+                  <CardDescription>
+                    task time: {formatStopwatch(liveTask)}
+                  </CardDescription>
                 </>
               ) : (
                 <p className="text-xl font-bold">—</p>
@@ -455,7 +467,6 @@ export default function AnalyticsPage() {
 
       {/* ── Row 1: Status + Priority donuts, Efficiency sparkline ─────────── */}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-
         {/* Status Distribution */}
         <Card className="gap-2">
           <CardHeader className="pb-1">
@@ -476,23 +487,36 @@ export default function AnalyticsPage() {
                   isAnimationActive={false}
                 >
                   {(data?.statusDistribution ?? []).map((entry, i) => (
-                    <Cell key={entry.name} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                    <Cell
+                      key={entry.name}
+                      fill={CHART_COLORS[i % CHART_COLORS.length]}
+                    />
                   ))}
                 </Pie>
                 <Tooltip
-                  formatter={(v: any, _: any, p: any) => [v, p.payload.displayName]}
+                  formatter={(v, _name, p) => [
+                    v ?? "",
+                    (p.payload as { displayName: string }).displayName,
+                  ]}
                   contentStyle={{ fontSize: 11 }}
                 />
               </PieChart>
             </div>
             <div className="flex-1 space-y-2" style={blurStyle}>
               {(data?.statusDistribution ?? []).map((item, i) => {
-                const total = (data?.statusDistribution ?? []).reduce((s, x) => s + x.count, 0);
+                const total = (data?.statusDistribution ?? []).reduce(
+                  (s, x) => s + x.count,
+                  0,
+                );
                 return (
                   <div key={item.name}>
                     <div className="flex justify-between mb-0.5">
-                      <span className="text-[11px] truncate max-w-[65%]">{item.displayName}</span>
-                      <span className="text-[11px] text-muted-foreground shrink-0">{item.count}</span>
+                      <span className="text-[11px] truncate max-w-[65%]">
+                        {item.displayName}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground shrink-0">
+                        {item.count}
+                      </span>
                     </div>
                     <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                       <div
@@ -537,26 +561,37 @@ export default function AnalyticsPage() {
                   ))}
                 </Pie>
                 <Tooltip
-                  formatter={(v: any, _: any, p: any) => [v, p.payload.displayName]}
+                  formatter={(v, _name, p) => [
+                    v ?? "",
+                    (p.payload as { displayName: string }).displayName,
+                  ]}
                   contentStyle={{ fontSize: 11 }}
                 />
               </PieChart>
             </div>
             <div className="flex-1 space-y-2" style={blurStyle}>
               {(data?.severityDistribution ?? []).map((item) => {
-                const total = (data?.severityDistribution ?? []).reduce((s, x) => s + x.count, 0);
+                const total = (data?.severityDistribution ?? []).reduce(
+                  (s, x) => s + x.count,
+                  0,
+                );
                 return (
                   <div key={item.name}>
                     <div className="flex justify-between mb-0.5">
-                      <span className="text-[11px] truncate max-w-[65%]">{item.displayName}</span>
-                      <span className="text-[11px] text-muted-foreground shrink-0">{item.count}</span>
+                      <span className="text-[11px] truncate max-w-[65%]">
+                        {item.displayName}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground shrink-0">
+                        {item.count}
+                      </span>
                     </div>
                     <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                       <div
                         className="h-full rounded-full transition-[width] duration-500"
                         style={{
                           width: `${Math.round((item.count / Math.max(1, total)) * 100)}%`,
-                          background: priorityColors[item.name] ?? "var(--chart-1)",
+                          background:
+                            priorityColors[item.name] ?? "var(--chart-1)",
                         }}
                       />
                     </div>
@@ -574,12 +609,23 @@ export default function AnalyticsPage() {
             <CardDescription>task time ÷ wall clock per day</CardDescription>
           </CardHeader>
           <CardContent className="px-2 pb-3" style={blurStyle}>
-            <ChartContainer config={efficiencySparkConfig} className="h-[140px] w-full">
+            <ChartContainer
+              config={efficiencySparkConfig}
+              className="h-[140px] w-full"
+            >
               <AreaChart data={efficiencySparkData}>
                 <defs>
                   <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--chart-2)" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="var(--chart-2)" stopOpacity={0} />
+                    <stop
+                      offset="5%"
+                      stopColor="var(--chart-2)"
+                      stopOpacity={0.3}
+                    />
+                    <stop
+                      offset="95%"
+                      stopColor="var(--chart-2)"
+                      stopOpacity={0}
+                    />
                   </linearGradient>
                 </defs>
                 <CartesianGrid vertical={false} strokeDasharray="3 3" />
@@ -593,7 +639,7 @@ export default function AnalyticsPage() {
                 <ChartTooltip
                   content={
                     <ChartTooltipContent
-                      formatter={(v: any) => [`${v}x`, "Efficiency"]}
+                      formatter={(v) => [`${v ?? ""}x`, "Efficiency"]}
                     />
                   }
                 />
@@ -613,12 +659,13 @@ export default function AnalyticsPage() {
 
       {/* ── Row 2: Work Pattern heatmap (2-col) + Treemap (1-col) ──────────── */}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-
         {/* Work Pattern Heatmap */}
         <Card className="gap-2 md:col-span-2">
           <CardHeader className="pb-1">
             <CardTitle>Work Pattern</CardTitle>
-            <CardDescription>hours × days (UTC) — darker = more time</CardDescription>
+            <CardDescription>
+              hours × days (UTC) — darker = more time
+            </CardDescription>
           </CardHeader>
           <CardContent className="px-4 pb-4" style={blurStyle}>
             {periodDays.length > 0 ? (
@@ -647,7 +694,7 @@ export default function AnalyticsPage() {
                   data={treemapData}
                   dataKey="size"
                   aspectRatio={4 / 3}
-                  content={<CustomTreemapContent />}
+                  content={CustomTreemapContent}
                 />
               </ResponsiveContainer>
             ) : (
@@ -661,7 +708,6 @@ export default function AnalyticsPage() {
 
       {/* ── Row 3: Completion Velocity + Session Quality ────────────────────── */}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-
         {/* Completion Velocity */}
         <Card className="gap-2">
           <CardHeader className="pb-1">
@@ -669,7 +715,10 @@ export default function AnalyticsPage() {
             <CardDescription>tasks completed per day</CardDescription>
           </CardHeader>
           <CardContent className="px-2 pb-3" style={blurStyle}>
-            <ChartContainer config={completionChartConfig} className="h-[160px] w-full">
+            <ChartContainer
+              config={completionChartConfig}
+              className="h-[160px] w-full"
+            >
               <BarChart data={completionData}>
                 <CartesianGrid vertical={false} strokeDasharray="3 3" />
                 <XAxis
@@ -708,7 +757,9 @@ export default function AnalyticsPage() {
                   <div key={bucket.label}>
                     <div className="flex justify-between mb-0.5">
                       <span className="text-xs">{bucket.label}</span>
-                      <span className="text-xs text-muted-foreground">{bucket.count}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {bucket.count}
+                      </span>
                     </div>
                     <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                       <div
@@ -729,8 +780,12 @@ export default function AnalyticsPage() {
               )}
               {data?.sessionStats && data.sessionStats.count > 0 && (
                 <div className="pt-2 flex gap-4 text-xs text-muted-foreground border-t">
-                  <span>min {formatDuration(data.sessionStats.minSeconds)}</span>
-                  <span>max {formatDuration(data.sessionStats.maxSeconds)}</span>
+                  <span>
+                    min {formatDuration(data.sessionStats.minSeconds)}
+                  </span>
+                  <span>
+                    max {formatDuration(data.sessionStats.maxSeconds)}
+                  </span>
                 </div>
               )}
             </div>
