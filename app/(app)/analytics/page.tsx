@@ -11,10 +11,11 @@ import {
   startOfMonth,
   endOfMonth,
   parseISO,
+  eachDayOfInterval,
 } from "date-fns";
 import { apiFetch } from "@/lib/api-client";
 import { useLiveTime } from "@/lib/hooks/use-live-time";
-import { formatDuration } from "@/lib/time-utils";
+import { formatDuration, formatStopwatch } from "@/lib/time-utils";
 import {
   Card,
   CardContent,
@@ -29,9 +30,15 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { BarChart, Bar, XAxis, CartesianGrid, Cell } from "recharts";
+import {
+  BarChart, Bar, XAxis, CartesianGrid, Cell,
+  PieChart, Pie, Tooltip,
+  AreaChart, Area, YAxis,
+  Treemap,
+  ResponsiveContainer,
+} from "recharts";
 import { CaretLeft, CaretRight } from "@phosphor-icons/react";
-import type { AnalyticsData } from "@/lib/types";
+import type { AnalyticsData, WorkPatternEntry } from "@/lib/types";
 
 type Period = "day" | "week" | "month" | "custom";
 
@@ -66,44 +73,117 @@ function getPeriodRange(
   return { from: "", to: "", label: "Custom" };
 }
 
-const hoursChartConfig = {
-  wallClock: { label: "Wall Clock (min)", color: "var(--chart-1)" },
-  taskTime: { label: "Task Time (min)", color: "var(--chart-2)" },
-};
 const completionChartConfig = {
   tasksCompleted: { label: "Completed", color: "var(--chart-3)" },
 };
-const hourlyChartConfig = {
-  seconds: { label: "Minutes", color: "var(--chart-1)" },
+const efficiencySparkConfig = {
+  efficiency: { label: "Efficiency", color: "var(--chart-2)" },
 };
 
-const severityColors: Record<string, string> = {
-  urgent: "hsl(var(--chart-5))",
-  high: "hsl(var(--chart-4))",
-  medium: "hsl(var(--chart-1))",
-  low: "hsl(var(--chart-2))",
+// Canonical priority colors — chart vars are all blue/purple, these match app-wide severity colors
+const priorityColors: Record<string, string> = {
+  urgent: "#ef4444",
+  high:   "#f59e0b",
+  medium: "#3b82f6",
+  low:    "#71717a",
 };
 
-function TotalTimeDisplay({
-  wallClock,
-  taskTime,
-  isRunning,
-  sessionStartedAt,
+const CHART_COLORS = [
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
+];
+
+// ── Work Pattern Heatmap ────────────────────────────────────────────────────
+function WorkPatternHeatmap({
+  data,
+  days,
 }: {
-  wallClock: number;
-  taskTime: number;
-  isRunning: boolean;
-  sessionStartedAt: string | null;
+  data: WorkPatternEntry[];
+  days: string[];
 }) {
-  const liveWall = useLiveTime(wallClock, isRunning, sessionStartedAt);
-  const liveTask = useLiveTime(taskTime, isRunning, sessionStartedAt);
+  const maxSeconds = Math.max(1, ...data.map((d) => d.seconds));
+  const byKey = new Map(data.map((d) => [`${d.date}:${d.hour}`, d.seconds]));
+  const HOURS = Array.from({ length: 24 }, (_, i) => i);
+
   return (
-    <>
-      <p className="text-xl font-bold tabular-nums">
-        {formatDuration(liveWall)}
-      </p>
-      <CardDescription>task time: {formatDuration(liveTask)}</CardDescription>
-    </>
+    <div className="space-y-[3px] overflow-x-auto min-w-0">
+      {/* Hour labels */}
+      <div className="flex ml-9">
+        {HOURS.map((h) => (
+          <div
+            key={h}
+            className="flex-1 text-[8px] text-muted-foreground text-center leading-none"
+          >
+            {h % 6 === 0
+              ? h === 0
+                ? "12a"
+                : h < 12
+                  ? `${h}a`
+                  : h === 12
+                    ? "12p"
+                    : `${h - 12}p`
+              : ""}
+          </div>
+        ))}
+      </div>
+      {days.map((date) => (
+        <div key={date} className="flex items-center gap-[2px]">
+          <div className="w-8 shrink-0 text-[9px] text-muted-foreground text-right pr-1">
+            {format(parseISO(date), "EEE d")}
+          </div>
+          {HOURS.map((h) => {
+            const s = byKey.get(`${date}:${h}`) ?? 0;
+            const opacity = s > 0 ? 0.15 + (s / maxSeconds) * 0.85 : 0;
+            return (
+              <div
+                key={h}
+                className="flex-1 rounded-[2px]"
+                style={{
+                  height: "11px",
+                  background: "var(--chart-1)",
+                  opacity: s > 0 ? opacity : 0.08,
+                }}
+                title={s > 0 ? `${Math.round(s / 60)}m` : undefined}
+              />
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Treemap custom cell renderer ────────────────────────────────────────────
+function CustomTreemapContent(props: any) {
+  const { x, y, width, height, name, index } = props;
+  const fill = CHART_COLORS[index % CHART_COLORS.length];
+  return (
+    <g>
+      <rect
+        x={x + 1}
+        y={y + 1}
+        width={Math.max(0, width - 2)}
+        height={Math.max(0, height - 2)}
+        fill={fill}
+        rx={3}
+        opacity={0.85}
+      />
+      {width > 50 && height > 20 && (
+        <text
+          x={x + width / 2}
+          y={y + height / 2 + 4}
+          textAnchor="middle"
+          fill="white"
+          fontSize={9}
+          className="pointer-events-none select-none"
+        >
+          {name.length > 14 ? name.slice(0, 14) + "…" : name}
+        </text>
+      )}
+    </g>
   );
 }
 
@@ -121,6 +201,28 @@ export default function AnalyticsPage() {
 
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const liveWall = useLiveTime(
+    data?.totalWallClockSeconds ?? 0,
+    data?.isRunning ?? false,
+    data?.sessionStartedAt ?? null,
+  );
+  const liveTask = useLiveTime(
+    data?.totalTaskTimeSeconds ?? 0,
+    data?.isRunning ?? false,
+    data?.sessionStartedAt ?? null,
+  );
+  const activeElapsed = useLiveTime(
+    0,
+    data?.isRunning ?? false,
+    data?.sessionStartedAt ?? null,
+  );
+  const liveEfficiency = liveWall > 0
+    ? Math.round((liveTask / liveWall) * 100) / 100
+    : data?.efficiencyMultiplier ?? 1;
+  const liveAvg = (data?.activeDays ?? 0) > 0
+    ? Math.floor(liveWall / data!.activeDays)
+    : 0;
 
   const { from, to, label } =
     period === "custom" && appliedCustom
@@ -149,34 +251,34 @@ export default function AnalyticsPage() {
     fetchAnalytics();
   }, [fetchAnalytics]);
 
-  const hoursData = (data?.dailyStats ?? []).map((d) => ({
-    day: format(parseISO(d.date), period === "month" ? "d" : "EEE"),
-    wallClock: loading ? 0 : Math.round(d.wallClockSeconds / 60),
-    taskTime: loading ? 0 : Math.round(d.taskTimeSeconds / 60),
-  }));
-
   const completionData = (data?.dailyStats ?? []).map((d) => ({
     day: format(parseISO(d.date), period === "month" ? "d" : "EEE"),
     tasksCompleted: loading ? 0 : d.tasksCompleted,
   }));
 
-  const hourlyData = (data?.hourlyDistribution ?? []).map((h) => ({
-    hour: h.hour,
-    label:
-      h.hour === 0
-        ? "12a"
-        : h.hour < 12
-          ? `${h.hour}a`
-          : h.hour === 12
-            ? "12p"
-            : `${h.hour - 12}p`,
-    seconds: loading ? 0 : Math.round(h.seconds / 60),
+  // Efficiency sparkline data (per day)
+  const efficiencySparkData = (data?.dailyStats ?? []).map((d) => ({
+    day: format(parseISO(d.date), period === "month" ? "d" : "EEE"),
+    efficiency:
+      d.wallClockSeconds > 0
+        ? Math.round((d.taskTimeSeconds / d.wallClockSeconds) * 100) / 100
+        : 0,
   }));
 
-  const maxTopTask = Math.max(
-    1,
-    ...(data?.topTasks ?? []).map((t) => t.totalTimeSeconds),
-  );
+  // Treemap: top tasks data
+  const treemapData = (data?.topTasks ?? []).slice(0, 8).map((t) => ({
+    name: t.taskName,
+    size: t.totalTimeSeconds,
+    taskId: t.taskId,
+  }));
+
+  // All days in the current period (for heatmap row order)
+  const periodDays =
+    from && to
+      ? eachDayOfInterval({ start: parseISO(from), end: parseISO(to) }).map((d) =>
+          format(d, "yyyy-MM-dd")
+        )
+      : [];
 
   const blurStyle: React.CSSProperties = {
     filter: loading ? "blur(8px)" : "none",
@@ -272,12 +374,12 @@ export default function AnalyticsPage() {
           <CardContent>
             <span style={blurStyle}>
               {data ? (
-                <TotalTimeDisplay
-                  wallClock={data.totalWallClockSeconds}
-                  taskTime={data.totalTaskTimeSeconds}
-                  isRunning={data.isRunning}
-                  sessionStartedAt={data.sessionStartedAt}
-                />
+                <>
+                  <p className="text-xl font-bold tabular-nums">
+                    {formatStopwatch(liveWall)}
+                  </p>
+                  <CardDescription>task time: {formatStopwatch(liveTask)}</CardDescription>
+                </>
               ) : (
                 <p className="text-xl font-bold">—</p>
               )}
@@ -292,9 +394,9 @@ export default function AnalyticsPage() {
           <CardContent>
             <span style={blurStyle}>
               <p
-                className={`text-xl font-bold ${(data?.efficiencyMultiplier ?? 1) > 1 ? "text-emerald-500" : ""}`}
+                className={`text-xl font-bold ${liveEfficiency > 1 ? "text-emerald-500" : ""}`}
               >
-                {data ? `${data.efficiencyMultiplier}x` : "—"}
+                {data ? `${liveEfficiency}x` : "—"}
               </p>
             </span>
             <CardDescription>task ÷ clock</CardDescription>
@@ -321,8 +423,8 @@ export default function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             <span style={blurStyle}>
-              <p className="text-xl font-bold">
-                {data ? formatDuration(data.avgDailyWallClockSeconds) : "—"}
+              <p className="text-xl font-bold tabular-nums">
+                {data ? formatStopwatch(liveAvg) : "—"}
               </p>
             </span>
             <CardDescription>active days only</CardDescription>
@@ -344,70 +446,223 @@ export default function AnalyticsPage() {
         </Card>
       </div>
 
-      {/* Charts row 1: hours + completion */}
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        {/* Hours worked */}
+      {/* ── Row 1: Status + Priority donuts, Efficiency sparkline ─────────── */}
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+
+        {/* Status Distribution */}
         <Card className="gap-2">
-          <CardHeader>
-            <CardTitle>Hours Worked</CardTitle>
-            <CardDescription>
-              <span className="flex gap-3">
-                <span className="flex items-center gap-1">
-                  <span className="inline-block h-2 w-2 rounded-sm bg-[var(--chart-1)]" />
-                  Wall clock
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="inline-block h-2 w-2 rounded-sm bg-[var(--chart-2)]" />
-                  Task time
-                </span>
-              </span>
-            </CardDescription>
+          <CardHeader className="pb-1">
+            <CardTitle>By Status</CardTitle>
+            <CardDescription>tasks worked on in period</CardDescription>
           </CardHeader>
-          <CardContent className="px-2 pb-3">
-            <ChartContainer
-              config={hoursChartConfig}
-              className="h-[160px] w-full"
-            >
-              <BarChart data={hoursData} barGap={2}>
+          <CardContent className="flex gap-4 items-center">
+            <div style={blurStyle}>
+              <PieChart width={110} height={110}>
+                <Pie
+                  data={data?.statusDistribution ?? []}
+                  cx={50}
+                  cy={50}
+                  innerRadius={28}
+                  outerRadius={48}
+                  dataKey="count"
+                  paddingAngle={3}
+                  isAnimationActive={false}
+                >
+                  {(data?.statusDistribution ?? []).map((entry, i) => (
+                    <Cell key={entry.name} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  formatter={(v: any, _: any, p: any) => [v, p.payload.displayName]}
+                  contentStyle={{ fontSize: 11 }}
+                />
+              </PieChart>
+            </div>
+            <div className="flex-1 space-y-2" style={blurStyle}>
+              {(data?.statusDistribution ?? []).map((item, i) => {
+                const total = (data?.statusDistribution ?? []).reduce((s, x) => s + x.count, 0);
+                return (
+                  <div key={item.name}>
+                    <div className="flex justify-between mb-0.5">
+                      <span className="text-[11px] truncate max-w-[65%]">{item.displayName}</span>
+                      <span className="text-[11px] text-muted-foreground shrink-0">{item.count}</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-[width] duration-500"
+                        style={{
+                          width: `${Math.round((item.count / Math.max(1, total)) * 100)}%`,
+                          background: CHART_COLORS[i % CHART_COLORS.length],
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Priority Distribution */}
+        <Card className="gap-2">
+          <CardHeader className="pb-1">
+            <CardTitle>By Priority</CardTitle>
+            <CardDescription>tasks worked on in period</CardDescription>
+          </CardHeader>
+          <CardContent className="flex gap-4 items-center">
+            <div style={blurStyle}>
+              <PieChart width={110} height={110}>
+                <Pie
+                  data={data?.severityDistribution ?? []}
+                  cx={50}
+                  cy={50}
+                  innerRadius={28}
+                  outerRadius={48}
+                  dataKey="count"
+                  paddingAngle={3}
+                  isAnimationActive={false}
+                >
+                  {(data?.severityDistribution ?? []).map((entry) => (
+                    <Cell
+                      key={entry.name}
+                      fill={priorityColors[entry.name] ?? "var(--chart-1)"}
+                    />
+                  ))}
+                </Pie>
+                <Tooltip
+                  formatter={(v: any, _: any, p: any) => [v, p.payload.displayName]}
+                  contentStyle={{ fontSize: 11 }}
+                />
+              </PieChart>
+            </div>
+            <div className="flex-1 space-y-2" style={blurStyle}>
+              {(data?.severityDistribution ?? []).map((item) => {
+                const total = (data?.severityDistribution ?? []).reduce((s, x) => s + x.count, 0);
+                return (
+                  <div key={item.name}>
+                    <div className="flex justify-between mb-0.5">
+                      <span className="text-[11px] truncate max-w-[65%]">{item.displayName}</span>
+                      <span className="text-[11px] text-muted-foreground shrink-0">{item.count}</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-[width] duration-500"
+                        style={{
+                          width: `${Math.round((item.count / Math.max(1, total)) * 100)}%`,
+                          background: priorityColors[item.name] ?? "var(--chart-1)",
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Daily Efficiency Sparkline */}
+        <Card className="gap-2">
+          <CardHeader className="pb-1">
+            <CardTitle>Daily Efficiency</CardTitle>
+            <CardDescription>task time ÷ wall clock per day</CardDescription>
+          </CardHeader>
+          <CardContent className="px-2 pb-3" style={blurStyle}>
+            <ChartContainer config={efficiencySparkConfig} className="h-[140px] w-full">
+              <AreaChart data={efficiencySparkData}>
+                <defs>
+                  <linearGradient id="efficiencyGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--chart-2)" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="var(--chart-2)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid vertical={false} strokeDasharray="3 3" />
                 <XAxis
                   dataKey="day"
                   tickLine={false}
                   axisLine={false}
-                  tick={{ fontSize: 10 }}
+                  tick={{ fontSize: 9 }}
                 />
+                <YAxis hide domain={[0, "auto"]} />
                 <ChartTooltip
-                  content={<ChartTooltipContent formatter={(v) => `${v}m`} />}
+                  content={
+                    <ChartTooltipContent
+                      formatter={(v: any) => [`${v}x`, "Efficiency"]}
+                    />
+                  }
                 />
-                <Bar
-                  dataKey="wallClock"
-                  fill="var(--color-wallClock)"
-                  radius={[3, 3, 0, 0]}
-                  maxBarSize={20}
+                <Area
+                  dataKey="efficiency"
+                  stroke="var(--chart-2)"
+                  fill="url(#efficiencyGrad)"
+                  strokeWidth={1.5}
+                  dot={false}
                   animationDuration={500}
                 />
-                <Bar
-                  dataKey="taskTime"
-                  fill="var(--color-taskTime)"
-                  radius={[3, 3, 0, 0]}
-                  maxBarSize={20}
-                  animationDuration={500}
-                />
-              </BarChart>
+              </AreaChart>
             </ChartContainer>
           </CardContent>
         </Card>
+      </div>
 
-        {/* Task completion */}
+      {/* ── Row 2: Work Pattern heatmap (2-col) + Treemap (1-col) ──────────── */}
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+
+        {/* Work Pattern Heatmap */}
+        <Card className="gap-2 md:col-span-2">
+          <CardHeader className="pb-1">
+            <CardTitle>Work Pattern</CardTitle>
+            <CardDescription>hours × days (UTC) — darker = more time</CardDescription>
+          </CardHeader>
+          <CardContent className="px-4 pb-4" style={blurStyle}>
+            {periodDays.length > 0 ? (
+              <WorkPatternHeatmap
+                data={data?.workPattern ?? []}
+                days={periodDays}
+              />
+            ) : (
+              <p className="text-xs text-muted-foreground text-center py-6">
+                Select a period to view work pattern.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Time Allocation Treemap */}
         <Card className="gap-2">
-          <CardHeader>
-            <CardTitle>Tasks Completed</CardTitle>
+          <CardHeader className="pb-1">
+            <CardTitle>Time Allocation</CardTitle>
+            <CardDescription>top tasks by time logged</CardDescription>
+          </CardHeader>
+          <CardContent className="px-2 pb-3" style={blurStyle}>
+            {treemapData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={160}>
+                <Treemap
+                  data={treemapData}
+                  dataKey="size"
+                  aspectRatio={4 / 3}
+                  content={<CustomTreemapContent />}
+                />
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-xs text-muted-foreground text-center py-10">
+                No time logged in this period.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ── Row 3: Completion Velocity + Session Quality ────────────────────── */}
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+
+        {/* Completion Velocity */}
+        <Card className="gap-2">
+          <CardHeader className="pb-1">
+            <CardTitle>Completion Velocity</CardTitle>
+            <CardDescription>tasks completed per day</CardDescription>
           </CardHeader>
           <CardContent className="px-2 pb-3">
-            <ChartContainer
-              config={completionChartConfig}
-              className="h-[160px] w-full"
-            >
+            <ChartContainer config={completionChartConfig} className="h-[160px] w-full">
               <BarChart data={completionData}>
                 <CartesianGrid vertical={false} strokeDasharray="3 3" />
                 <XAxis
@@ -428,128 +683,57 @@ export default function AnalyticsPage() {
             </ChartContainer>
           </CardContent>
         </Card>
-      </div>
 
-      {/* Charts row 2: top tasks + priority */}
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        {/* Top tasks by time */}
+        {/* Session Quality */}
         <Card className="gap-2">
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle>Top Tasks by Time</CardTitle>
+          <CardHeader className="pb-1">
+            <CardTitle>Session Quality</CardTitle>
+            <CardDescription>
+              {data?.sessionStats
+                ? `${data.sessionStats.count} sessions · avg ${formatDuration(data.sessionStats.avgSeconds)}`
+                : "session length distribution"}
+            </CardDescription>
           </CardHeader>
-          <CardContent className="px-4 pb-4 space-y-2.5">
-            {(data?.topTasks ?? []).slice(0, 6).map((t) => (
-              <div key={t.taskId}>
-                <div className="flex justify-between mb-1">
-                  <span className="text-xs truncate max-w-[70%]">
-                    {t.taskName}
-                  </span>
-                  <span className="text-xs text-muted-foreground shrink-0">
-                    {formatDuration(t.totalTimeSeconds)}
-                  </span>
-                </div>
-                <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-[hsl(var(--chart-1))]"
-                    style={{
-                      width: loading
-                        ? "0%"
-                        : `${Math.round((t.totalTimeSeconds / maxTopTask) * 100)}%`,
-                      transition: "width 0.5s ease",
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
-            {(data?.topTasks ?? []).length === 0 && (
-              <p className="text-xs text-muted-foreground text-center py-4">
-                No time logged in this period.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Priority distribution */}
-        <Card className="gap-2">
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle>Tasks by Priority</CardTitle>
-            <CardDescription>tasks worked on in period</CardDescription>
-          </CardHeader>
-          <CardContent className="px-4 pb-4 space-y-2.5">
-            {(data?.severityDistribution ?? []).map((item) => {
-              const total = (data?.severityDistribution ?? []).reduce(
-                (s, i) => s + i.count,
-                0,
-              );
-              return (
-                <div key={item.name}>
-                  <div className="flex justify-between mb-1">
-                    <span className="text-xs">{item.displayName}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {item.count}
-                    </span>
+          <CardContent className="px-4 pb-4" style={blurStyle}>
+            <div className="space-y-2.5">
+              {(data?.sessionStats?.distribution ?? []).map((bucket) => {
+                const maxCount = Math.max(
+                  1,
+                  ...(data?.sessionStats?.distribution ?? []).map((b) => b.count)
+                );
+                return (
+                  <div key={bucket.label}>
+                    <div className="flex justify-between mb-0.5">
+                      <span className="text-xs">{bucket.label}</span>
+                      <span className="text-xs text-muted-foreground">{bucket.count}</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-[width] duration-500"
+                        style={{
+                          width: `${Math.round((bucket.count / maxCount) * 100)}%`,
+                          background: "var(--chart-3)",
+                        }}
+                      />
+                    </div>
                   </div>
-                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className="h-full rounded-full"
-                      style={{
-                        width: loading
-                          ? "0%"
-                          : `${Math.round((item.count / Math.max(1, total)) * 100)}%`,
-                        background:
-                          severityColors[item.name] ?? "hsl(var(--chart-1))",
-                        transition: "width 0.5s ease",
-                      }}
-                    />
-                  </div>
+                );
+              })}
+              {(data?.sessionStats?.count ?? 0) === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-4">
+                  No completed sessions in this period.
+                </p>
+              )}
+              {data?.sessionStats && data.sessionStats.count > 0 && (
+                <div className="pt-2 flex gap-4 text-xs text-muted-foreground border-t">
+                  <span>min {formatDuration(data.sessionStats.minSeconds)}</span>
+                  <span>max {formatDuration(data.sessionStats.maxSeconds)}</span>
                 </div>
-              );
-            })}
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
-
-      {/* Productive hours heatmap */}
-      <Card className="gap-2">
-        <CardHeader>
-          <CardTitle>Most Productive Hours</CardTitle>
-          <CardDescription>
-            Average minutes logged per hour of day (UTC)
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="px-2 pb-3">
-          <ChartContainer
-            config={hourlyChartConfig}
-            className="h-[120px] w-full"
-          >
-            <BarChart data={hourlyData}>
-              <CartesianGrid vertical={false} strokeDasharray="3 3" />
-              <XAxis
-                dataKey="label"
-                tickLine={false}
-                axisLine={false}
-                tick={{ fontSize: 9 }}
-                interval={2}
-              />
-              <ChartTooltip
-                content={
-                  <ChartTooltipContent
-                    labelFormatter={(label) => `${label}`}
-                    formatter={(v) => [`${v}m`, "Time"]}
-                  />
-                }
-              />
-              <Bar
-                dataKey="seconds"
-                fill="var(--color-seconds)"
-                radius={[2, 2, 0, 0]}
-                maxBarSize={16}
-                animationDuration={500}
-              />
-            </BarChart>
-          </ChartContainer>
-        </CardContent>
-      </Card>
     </div>
   );
 }
