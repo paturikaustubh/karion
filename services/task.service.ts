@@ -113,14 +113,13 @@ export async function updateTask(taskId: string, input: UpdateTaskInput, userId:
   if (input.isActive !== undefined) updateData.isActive = input.isActive;
 
   if (input.status !== undefined) {
-    const statusId = await resolveTaskStatusId(input.status);
-    updateData.taskStatus = { connect: { id: statusId } };
-
-    // Auto-stop any active session when moving to a high-precedence status
     const newStatusRecord = await prisma.taskStatus.findFirst({
       where: { statusName: input.status },
     });
-    if (newStatusRecord && newStatusRecord.precedence > 1) {
+    if (!newStatusRecord) throw new Error(`Unknown status: ${input.status}`);
+    updateData.taskStatus = { connect: { id: newStatusRecord.id } };
+
+    if (newStatusRecord.precedence > 1) {
       const activeSession = await taskSessionData.find({
         taskId: existing.id,
         activeSession: true,
@@ -137,7 +136,7 @@ export async function updateTask(taskId: string, input: UpdateTaskInput, userId:
         );
         await taskData.update(
           { id: existing.id },
-          { totalWorkTime: (existing as any).totalWorkTime + duration }
+          { totalWorkTime: { increment: duration } }
         );
         await logActivity(
           "time_stopped",
