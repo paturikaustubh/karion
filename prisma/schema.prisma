@@ -23,6 +23,7 @@ model TaskStatus {
   id          Int    @id @default(autoincrement())
   statusName  String @unique
   displayName String
+  precedence  Int    @default(0)
 
   tasks Task[]
 
