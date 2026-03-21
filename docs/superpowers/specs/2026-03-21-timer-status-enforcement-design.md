@@ -24,7 +24,7 @@ Add to `TaskStatus` model in `prisma/schema.prisma`:
 precedence Int @default(0)
 ```
 
-Migration populates the four values. The `@default(0)` ensures any future statuses added without an explicit precedence don't accidentally allow timers unless intentionally set.
+Migration populates the four values. The `@default(0)` ensures any future statuses added without an explicit precedence don't accidentally allow timers unless intentionally set. After running the migration, verify the four rows have the correct precedence values before deploying.
 
 ## Type Changes
 
@@ -37,15 +37,21 @@ export interface StatusRef {
 }
 ```
 
-All existing task queries already select the full status object, so `precedence` becomes available on every `task.taskStatus` reference without query changes.
+Two query include constants must be explicitly updated to add `precedence: true` to their status selects:
+- `taskInclude` in `services/task.service.ts` — selects `{ statusName, displayName }` today
+- `sessionInclude` in `services/time-tracking.service.ts` — selects `{ statusName, displayName }` on the nested task status
+
+Without this, `task.taskStatus.precedence` will be `undefined` at runtime even though TypeScript would accept it.
+
+The inline type on the tasks list page (`app/(app)/tasks/page.tsx`) also defines its own `taskStatus: { statusName: string; displayName: string }` and does not inherit from `StatusRef`. This type must have `precedence: number` added directly.
 
 ## Backend: Start Timer Validation
 
 **File:** `services/time-tracking.service.ts`, `startTimeSession` function.
 
 After fetching the task, before creating the session:
-- If `task.taskStatus.precedence > 1` → throw a validation error: `"Timer can only be started on tasks with status 'todo' or 'in-progress'"`
-- The API route (`POST /api/tasks/[id]/time-sessions`) returns this as HTTP 422
+- If `task.taskStatus.precedence > 1` → **throw** a typed validation error (not return `null`): `"Timer can only be started on tasks with status 'todo' or 'in-progress'"`
+- The API route (`POST /api/tasks/[id]/time-sessions`) catches this thrown error and returns HTTP 422. The route currently handles `null` as a 404 — a new branch is needed to distinguish the validation throw from not-found.
 
 The existing `todo → in-progress` auto-transition runs only after this check passes (unchanged behavior).
 
@@ -54,7 +60,7 @@ The existing `todo → in-progress` auto-transition runs only after this check p
 **File:** `services/task.service.ts`, `updateTask` function.
 
 When the update payload includes a `status` field:
-1. Fetch the new status record to get its `precedence`
+1. Query `task_statuses` by `statusName` to fetch the full status row including `precedence` (e.g. `prisma.taskStatus.findFirst({ where: { statusName: newStatus } })`)
 2. If `newStatus.precedence > 1`:
    - Query for an active session on this task (`activeSession: true`)
    - If found: stop it (set `endTime = now`, calculate `duration`, set `activeSession = false`, increment task `totalWorkTime`)
@@ -104,7 +110,8 @@ The rule on both surfaces: timer toggle is **enabled** when `task.taskStatus.pre
 | `prisma/schema.prisma` | Add `precedence Int @default(0)` to `TaskStatus` |
 | `prisma/migrations/` | Migration to add column and set seed values |
 | `lib/types/index.ts` | Add `precedence: number` to `StatusRef` |
-| `services/time-tracking.service.ts` | Validate `precedence <= 1` before starting session |
-| `services/task.service.ts` | Auto-stop session when new status `precedence > 1` |
-| `app/(app)/tasks/page.tsx` | Disable start button when `precedence > 1` |
+| `services/time-tracking.service.ts` | Add `precedence: true` to `sessionInclude` status select; throw validation error when `precedence > 1` |
+| `services/task.service.ts` | Add `precedence: true` to `taskInclude` status select; auto-stop session when new status `precedence > 1` |
+| `app/api/tasks/[id]/time-sessions/route.ts` | Catch validation throw → return HTTP 422 |
+| `app/(app)/tasks/page.tsx` | Add `precedence: number` to inline `taskStatus` type; disable start button when `precedence > 1` |
 | `app/(app)/tasks/[id]/page.tsx` | Widen disable check to `precedence > 1` |
