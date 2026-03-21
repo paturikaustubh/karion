@@ -23,7 +23,6 @@ import {
 } from "@/components/ui/table";
 import { useUserSettings } from "@/components/providers/user-settings-provider";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -47,13 +46,15 @@ import ReactMarkdown from "react-markdown";
 import { format } from "date-fns";
 import { apiFetch } from "@/lib/api-client";
 import { useLookups } from "@/lib/use-lookups";
+import { useLiveTime } from "@/lib/hooks/use-live-time";
+import { formatStopwatch } from "@/lib/time-utils";
 import { getCached, setCached } from "@/lib/cache/activity-cache";
 
 interface TaskDetail {
   taskId: string;
   taskName: string;
   description: string;
-  taskStatus: { statusName: string; displayName: string };
+  taskStatus: { statusName: string; displayName: string; precedence: number };
   taskSeverity: { severityName: string; displayName: string };
   dueDate: string | null;
   createdAt: string;
@@ -95,15 +96,14 @@ function formatDateTime(iso: string, fmt: "12h" | "24h"): string {
   return `${format(d, "d MMM, yy")}, ${timePart}`;
 }
 
-const statusColors: Record<string, string> = {
-  todo: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
-  in_progress:
-    "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
-  blocked:
-    "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
-  completed:
-    "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
-};
+function LiveSessionDuration({ startTime }: { startTime: string }) {
+  const elapsed = useLiveTime(0, true, startTime);
+  return (
+    <span className="text-xs font-mono text-emerald-600 dark:text-emerald-400">
+      {formatStopwatch(elapsed)}
+    </span>
+  );
+}
 
 const activityIcons: Record<string, string> = {
   task_created: "🆕",
@@ -269,6 +269,13 @@ export default function TaskDetailPage({
     router.push("/tasks");
   };
 
+  const activeSession = task?.timeSessions?.find((s) => s.activeSession) ?? null;
+  const totalLiveTime = useLiveTime(
+    task?.totalWorkTime ?? 0,
+    !!activeSession,
+    activeSession?.startTime ?? null,
+  );
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -290,7 +297,6 @@ export default function TaskDetailPage({
     );
   }
 
-  const activeSession = task.timeSessions.find((s) => s.activeSession);
   const statusName = task.taskStatus.statusName;
 
   return (
@@ -513,9 +519,7 @@ export default function TaskDetailPage({
                               </TableCell>
                               <TableCell className="text-muted-foreground">
                                 {session.activeSession ? (
-                                  <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] animate-pulse">
-                                    LIVE
-                                  </Badge>
+                                  <LiveSessionDuration startTime={session.startTime} />
                                 ) : session.duration ? (
                                   formatDuration(session.duration)
                                 ) : (
@@ -667,7 +671,7 @@ export default function TaskDetailPage({
               <p className="text-xs text-muted-foreground">Time Tracked</p>
               <p className="text-xs flex items-center gap-1">
                 <Clock className="h-3.5 w-3.5" />
-                {formatDuration(task.totalWorkTime ?? 0)}
+                {formatStopwatch(totalLiveTime)}
               </p>
             </div>
             <div className="pt-1">
@@ -682,7 +686,7 @@ export default function TaskDetailPage({
                   Stop Timer
                 </Button>
               ) : (
-                statusName !== "completed" && (
+                task.taskStatus.precedence <= 1 && (
                   <Button
                     variant="outline"
                     size="sm"

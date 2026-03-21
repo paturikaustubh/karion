@@ -2,13 +2,14 @@ import { logActivity } from "./activity-log.service";
 import { resolveTaskStatusId } from "@/lib/lookup";
 import { taskData } from "@/lib/data/task.data";
 import { taskSessionData } from "@/lib/data/task-session.data";
+import { ValidationError } from "@/lib/errors";
 
 const sessionInclude = {
   task: {
     select: {
       taskId: true,
       taskName: true,
-      taskStatus: { select: { statusName: true, displayName: true } },
+      taskStatus: { select: { statusName: true, displayName: true, precedence: true } },
     },
   },
 };
@@ -33,9 +34,15 @@ export async function getTaskSessions(taskId: string, userId: number) {
 export async function startSession(taskId: string, userId: number) {
   const task = await taskData.find(
     { taskId, createdBy: userId, isActive: true },
-    { taskStatus: true }
+    { taskStatus: { select: { statusName: true, displayName: true, precedence: true } } }
   );
   if (!task) return null;
+
+  if ((task as any).taskStatus?.precedence > 1) {
+    throw new ValidationError(
+      "Timer can only be started on tasks with status 'todo' or 'in-progress'"
+    );
+  }
 
   const session = await taskSessionData.create(
     {

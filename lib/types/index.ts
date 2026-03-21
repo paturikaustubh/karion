@@ -3,6 +3,7 @@
 export interface StatusRef {
   statusName: string;
   displayName: string;
+  precedence: number;
 }
 
 export interface SeverityRef {
@@ -115,22 +116,94 @@ export interface ReportConfigItem {
 
 export interface DailyStats {
   date: string;
-  totalTimeSeconds: number;
+  taskTimeSeconds: number;      // sum of all session durations for the day
+  wallClockSeconds: number;     // merged intervals (deduped)
   tasksCompleted: number;
   commentsAdded: number;
 }
 
+export interface DistributionItem {
+  name: string;        // statusName / severityName
+  displayName: string;
+  count: number;
+}
+
+export interface HourlyBucket {
+  hour: number;        // 0–23
+  seconds: number;
+}
+
+export interface WorkPatternEntry {
+  date: string;   // "YYYY-MM-DD" (UTC)
+  hour: number;   // 0–23 (UTC)
+  seconds: number;
+}
+
+export interface SessionStats {
+  count: number;
+  avgSeconds: number;
+  maxSeconds: number;
+  minSeconds: number;
+  distribution: { label: string; count: number }[];  // 5 buckets: <5m, 5-15m, 15-30m, 30-60m, >60m
+}
+
+
 export interface AnalyticsData {
   dailyStats: DailyStats[];
-  totalTimeSeconds: number;
+  // task time = sum of all session durations (can exceed 24h if parallel)
+  totalTaskTimeSeconds: number;
+  // wall clock = merged intervals (never exceeds real time elapsed)
+  totalWallClockSeconds: number;
+  // efficiencyMultiplier = totalTaskTime / totalWallClock (1.0x if no parallel)
+  efficiencyMultiplier: number;
+  isRunning: boolean;
+  sessionStartedAt: string | null;
   totalTasksCompleted: number;
   totalCommentsAdded: number;
-  avgDailyTimeSeconds: number;
+  avgDailyWallClockSeconds: number;
+  activeDays: number;
+  activeHour: number | null;
   topTasks: {
     taskId: string;
     taskName: string;
     totalTimeSeconds: number;
+    isActive: boolean;
+    sessionStartedAt: string | null;
   }[];
+  statusDistribution: DistributionItem[];
+  severityDistribution: DistributionItem[];
+  hourlyDistribution: HourlyBucket[];
+  workPattern: WorkPatternEntry[];
+  sessionStats: SessionStats;
+}
+
+// ─── Dashboard Types ──────────────────────────────────────────────────────────
+
+export interface DashboardData {
+  // Today's snapshot
+  todayWallClockSeconds: number;
+  todayTaskTimeSeconds: number;
+  todayIsRunning: boolean;
+  todaySessionStartedAt: string | null;
+  todayCompleted: number;
+  todayDueCount: number;
+  overdueCount: number;
+  activeTask: {
+    taskId: string;
+    taskName: string;
+    sessionStartedAt: string;
+    totalActiveCount: number;
+    activeTaskNames: string[];
+  } | null;
+  // This week
+  weekDailyStats: { date: string; wallClockSeconds: number; taskTimeSeconds: number }[];
+  weekWallClockSeconds: number;
+  weekTaskTimeSeconds: number;
+  weekIsRunning: boolean;
+  weekSessionStartedAt: string | null;
+  weekEfficiency: number;
+  // Status snapshot (all open tasks)
+  statusDistribution: DistributionItem[];
 }
 
 // ─── API Response Types ───────────────────────────────────────────────────────

@@ -3,6 +3,7 @@ import { getTaskSessions, startSession } from "@/services/time-tracking.service"
 import { authenticateRequest } from "@/lib/auth";
 import { ok, err } from "@/lib/response";
 import { sanitize } from "@/lib/sanitize";
+import { ValidationError } from "@/lib/errors";
 
 export async function GET(
   request: NextRequest,
@@ -32,6 +33,9 @@ export async function POST(
     if (!session) return err("Task not found", "No task with that id", 404);
     return ok("Timer started", sanitize(session), 201);
   } catch (error) {
+    if (error instanceof ValidationError) {
+      return err(error.message, error.message, 422);
+    }
     console.error("POST time-session error:", error);
     return err("Failed to start timer", String(error));
   }

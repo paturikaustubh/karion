@@ -127,10 +127,10 @@ export default function LandingPage() {
           ✦ Personal productivity, redefined
         </motion.div>
 
-        <h1 ref={headlineRef} style={{ opacity: 0, transform: "translateY(60px)" }} className="text-5xl md:text-7xl font-bold text-white leading-tight max-w-5xl">
+        <h1 ref={headlineRef} style={{ opacity: 0, transform: "translateY(60px)", fontSize: "clamp(2rem, 8vw, 4.5rem)" }} className="font-bold text-white leading-tight max-w-5xl">
           Your work,
           <br />
-          <span style={{ backgroundImage: "linear-gradient(135deg, #667eea, #f093fb)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", whiteSpace: "nowrap" }}>
+          <span style={{ backgroundImage: "linear-gradient(135deg, #667eea, #f093fb)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
             beautifully tracked
           </span>
         </h1>

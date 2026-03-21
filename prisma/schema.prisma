@@ -23,6 +23,7 @@ model TaskStatus {
   id          Int    @id @default(autoincrement())
   statusName  String @unique
   displayName String
+  precedence  Int    @default(0)
 
   tasks Task[]
 
@@ -114,6 +115,7 @@ model TaskComment {
   @@index([taskId])
   @@index([createdBy])
   @@index([createdAt])
+  @@index([createdBy, createdAt])
   @@map("task_comments")
 }
 
@@ -137,6 +139,7 @@ model TaskSession {
   @@index([activeSession])
   @@index([startTime])
   @@index([createdBy])
+  @@index([createdBy, startTime])
   @@map("task_sessions")
 }
 
@@ -159,6 +162,7 @@ model TaskActivity {
   @@index([activityType])
   @@index([createdAt])
   @@index([createdBy])
+  @@index([createdBy, activityType, createdAt])
   @@map("task_activities")
 }
 
