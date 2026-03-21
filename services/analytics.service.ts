@@ -186,6 +186,7 @@ export async function getAnalytics(
     const [date, hourStr] = key.split(":");
     workPattern.push({ date, hour: parseInt(hourStr), seconds });
   }
+  workPattern.sort((a, b) => a.date.localeCompare(b.date) || a.hour - b.hour);
 
   // ── Session stats ──────────────────────────────────────────────────────
   const completedSessions = (taskSessions as any[]).filter(
