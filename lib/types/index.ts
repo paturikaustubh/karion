@@ -3,6 +3,7 @@
 export interface StatusRef {
   statusName: string;
   displayName: string;
+  precedence: number;
 }
 
 export interface SeverityRef {

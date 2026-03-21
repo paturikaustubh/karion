@@ -6,7 +6,7 @@ import { taskData } from "@/lib/data/task.data";
 import { taskActivityData } from "@/lib/data/task-activity.data";
 
 const taskInclude = {
-  taskStatus: { select: { statusName: true, displayName: true } },
+  taskStatus: { select: { statusName: true, displayName: true, precedence: true } },
   taskSeverity: { select: { severityName: true, displayName: true } },
   creationSource: { select: { sourceName: true, displayName: true } },
   _count: { select: { comments: true, timeSessions: true } },

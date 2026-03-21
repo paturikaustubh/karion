@@ -8,7 +8,7 @@ const sessionInclude = {
     select: {
       taskId: true,
       taskName: true,
-      taskStatus: { select: { statusName: true, displayName: true } },
+      taskStatus: { select: { statusName: true, displayName: true, precedence: true } },
     },
   },
 };
@@ -33,7 +33,7 @@ export async function getTaskSessions(taskId: string, userId: number) {
 export async function startSession(taskId: string, userId: number) {
   const task = await taskData.find(
     { taskId, createdBy: userId, isActive: true },
-    { taskStatus: true }
+    { taskStatus: { select: { statusName: true, displayName: true, precedence: true } } }
   );
   if (!task) return null;
 
