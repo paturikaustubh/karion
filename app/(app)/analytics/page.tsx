@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useId } from "react";
 import {
   format,
   addDays,
@@ -143,8 +143,8 @@ function WorkPatternHeatmap({
                 className="flex-1 rounded-[2px]"
                 style={{
                   height: "11px",
-                  background: "var(--chart-1)",
-                  opacity: s > 0 ? opacity : 0.08,
+                  background: s > 0 ? "var(--chart-1)" : "var(--muted)",
+                  opacity: s > 0 ? opacity : 0.3,
                 }}
                 title={s > 0 ? `${Math.round(s / 60)}m` : undefined}
               />
@@ -159,7 +159,7 @@ function WorkPatternHeatmap({
 // ── Treemap custom cell renderer ────────────────────────────────────────────
 function CustomTreemapContent(props: any) {
   const { x, y, width, height, name, index } = props;
-  const fill = CHART_COLORS[index % CHART_COLORS.length];
+  const fill = CHART_COLORS[(index ?? 0) % CHART_COLORS.length];
   return (
     <g>
       <rect
@@ -279,6 +279,13 @@ export default function AnalyticsPage() {
           format(d, "yyyy-MM-dd")
         )
       : [];
+
+  const gradientId = useId().replace(/:/g, "");
+
+  const sessionMaxCount = Math.max(
+    1,
+    ...(data?.sessionStats?.distribution ?? []).map((b) => b.count)
+  );
 
   const blurStyle: React.CSSProperties = {
     filter: loading ? "blur(8px)" : "none",
@@ -460,8 +467,8 @@ export default function AnalyticsPage() {
               <PieChart width={110} height={110}>
                 <Pie
                   data={data?.statusDistribution ?? []}
-                  cx={50}
-                  cy={50}
+                  cx={55}
+                  cy={55}
                   innerRadius={28}
                   outerRadius={48}
                   dataKey="count"
@@ -514,8 +521,8 @@ export default function AnalyticsPage() {
               <PieChart width={110} height={110}>
                 <Pie
                   data={data?.severityDistribution ?? []}
-                  cx={50}
-                  cy={50}
+                  cx={55}
+                  cy={55}
                   innerRadius={28}
                   outerRadius={48}
                   dataKey="count"
@@ -570,7 +577,7 @@ export default function AnalyticsPage() {
             <ChartContainer config={efficiencySparkConfig} className="h-[140px] w-full">
               <AreaChart data={efficiencySparkData}>
                 <defs>
-                  <linearGradient id="efficiencyGrad" x1="0" y1="0" x2="0" y2="1">
+                  <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="var(--chart-2)" stopOpacity={0.3} />
                     <stop offset="95%" stopColor="var(--chart-2)" stopOpacity={0} />
                   </linearGradient>
@@ -593,7 +600,7 @@ export default function AnalyticsPage() {
                 <Area
                   dataKey="efficiency"
                   stroke="var(--chart-2)"
-                  fill="url(#efficiencyGrad)"
+                  fill={`url(#${gradientId})`}
                   strokeWidth={1.5}
                   dot={false}
                   animationDuration={500}
@@ -661,7 +668,7 @@ export default function AnalyticsPage() {
             <CardTitle>Completion Velocity</CardTitle>
             <CardDescription>tasks completed per day</CardDescription>
           </CardHeader>
-          <CardContent className="px-2 pb-3">
+          <CardContent className="px-2 pb-3" style={blurStyle}>
             <ChartContainer config={completionChartConfig} className="h-[160px] w-full">
               <BarChart data={completionData}>
                 <CartesianGrid vertical={false} strokeDasharray="3 3" />
@@ -697,10 +704,6 @@ export default function AnalyticsPage() {
           <CardContent className="px-4 pb-4" style={blurStyle}>
             <div className="space-y-2.5">
               {(data?.sessionStats?.distribution ?? []).map((bucket) => {
-                const maxCount = Math.max(
-                  1,
-                  ...(data?.sessionStats?.distribution ?? []).map((b) => b.count)
-                );
                 return (
                   <div key={bucket.label}>
                     <div className="flex justify-between mb-0.5">
@@ -711,7 +714,7 @@ export default function AnalyticsPage() {
                       <div
                         className="h-full rounded-full transition-[width] duration-500"
                         style={{
-                          width: `${Math.round((bucket.count / maxCount) * 100)}%`,
+                          width: `${Math.round((bucket.count / sessionMaxCount) * 100)}%`,
                           background: "var(--chart-3)",
                         }}
                       />
