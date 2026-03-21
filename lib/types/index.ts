@@ -132,6 +132,20 @@ export interface HourlyBucket {
   seconds: number;
 }
 
+export interface WorkPatternEntry {
+  date: string;   // "YYYY-MM-DD" (UTC)
+  hour: number;   // 0–23 (UTC)
+  seconds: number;
+}
+
+export interface SessionStats {
+  count: number;
+  avgSeconds: number;
+  maxSeconds: number;
+  minSeconds: number;
+  distribution: { label: string; count: number }[];  // 5 buckets: <5m, 5-15m, 15-30m, 30-60m, >60m
+}
+
 export interface AnalyticsData {
   dailyStats: DailyStats[];
   // task time = sum of all session durations (can exceed 24h if parallel)
@@ -145,14 +159,20 @@ export interface AnalyticsData {
   totalTasksCompleted: number;
   totalCommentsAdded: number;
   avgDailyWallClockSeconds: number;
+  activeDays: number;
+  activeHour: number | null;
   topTasks: {
     taskId: string;
     taskName: string;
     totalTimeSeconds: number;
+    isActive: boolean;
+    sessionStartedAt: string | null;
   }[];
   statusDistribution: DistributionItem[];
   severityDistribution: DistributionItem[];
   hourlyDistribution: HourlyBucket[];
+  workPattern: WorkPatternEntry[];
+  sessionStats: SessionStats;
 }
 
 // ─── Dashboard Types ──────────────────────────────────────────────────────────
@@ -170,7 +190,8 @@ export interface DashboardData {
     taskId: string;
     taskName: string;
     sessionStartedAt: string;
-    taskTimeSeconds: number;
+    totalActiveCount: number;
+    activeTaskNames: string[];
   } | null;
   // This week
   weekDailyStats: { date: string; wallClockSeconds: number; taskTimeSeconds: number }[];
