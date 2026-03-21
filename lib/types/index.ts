@@ -147,6 +147,7 @@ export interface SessionStats {
   distribution: { label: string; count: number }[];  // 5 buckets: <5m, 5-15m, 15-30m, 30-60m, >60m
 }
 
+
 export interface AnalyticsData {
   dailyStats: DailyStats[];
   // task time = sum of all session durations (can exceed 24h if parallel)

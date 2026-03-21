@@ -53,6 +53,7 @@ export async function getAnalytics(
     commentsByDate.get(key)!.push(c);
   }
 
+
   // ── Per-day stats ──────────────────────────────────────────────────────────
   const days = eachDayOfInterval({ start: parseISO(from), end: parseISO(to) });
   const dailyStats = days.map((day) => {
@@ -228,6 +229,7 @@ export async function getAnalytics(
     minSeconds: minSessionSeconds,
     distribution: dBuckets.map((b) => ({ label: b.label, count: b.count })),
   };
+
 
   return {
     dailyStats,
