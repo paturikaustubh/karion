@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.0](https://github.com/paturikaustubh/karion/compare/karion-v0.2.1...karion-v0.3.0) (2026-03-21)
+
+
+### Features
+
+* dashboard and analytics 2.0 ([0b70a81](https://github.com/paturikaustubh/karion/commit/0b70a81747ec2c91407ecbca014008b2c0271a9e))
+* dashboard and analytics revamped ([718c457](https://github.com/paturikaustubh/karion/commit/718c457ddb920efd76a0177d4b959c100dcaa87f))
+* dashboard and analytics revamped ([ff9e3e2](https://github.com/paturikaustubh/karion/commit/ff9e3e2d26c8e0f6b265bf0c69149b5538f5494e))
+
 ## [0.2.1](https://github.com/paturikaustubh/karion/compare/karion-v0.2.0...karion-v0.2.1) (2026-03-20)
 
 
