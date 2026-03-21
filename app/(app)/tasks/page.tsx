@@ -14,6 +14,8 @@ import {
   Clock,
   ChatText,
 } from "@phosphor-icons/react";
+import { useLiveTime } from "@/lib/hooks/use-live-time";
+import { formatStopwatch } from "@/lib/time-utils";
 import {
   Card,
   CardHeader,
@@ -48,20 +50,12 @@ interface TaskItem {
   taskId: string;
   taskName: string;
   description: string;
-  taskStatus: { statusName: string; displayName: string };
+  taskStatus: { statusName: string; displayName: string; precedence: number };
   taskSeverity: { severityName: string; displayName: string };
   dueDate: string | null;
   createdAt: string;
   totalWorkTime: number;
   _count: { comments: number; timeSessions: number };
-}
-
-function formatDuration(seconds: number): string {
-  const hrs = Math.floor(seconds / 3600);
-  const mins = Math.floor((seconds % 3600) / 60);
-  if (hrs > 0) return `${hrs}h ${mins}m`;
-  if (mins > 0) return `${mins}m`;
-  return seconds > 0 ? `<1m` : "—";
 }
 
 const statusColors: Record<string, string> = {
@@ -80,6 +74,102 @@ const priorityColors: Record<string, string> = {
   high: "text-amber-700 dark:text-amber-300",
   urgent: "text-red-700 dark:text-red-300",
 };
+
+function TaskCard({
+  task,
+  activeInfo,
+  statuses,
+  onStatusChange,
+  onStart,
+  onStop,
+  onClick,
+}: {
+  task: TaskItem;
+  activeInfo: { sessionId: string; startTime: string } | undefined;
+  statuses: { value: string; label: string }[];
+  onStatusChange: (taskId: string, status: string) => void;
+  onStart: (e: React.MouseEvent, taskId: string) => void;
+  onStop: (e: React.MouseEvent, taskId: string) => void;
+  onClick: () => void;
+}) {
+  const isActive = !!activeInfo;
+  const sev = task.taskSeverity.severityName;
+  const totalLiveTime = useLiveTime(task.totalWorkTime, isActive, activeInfo?.startTime ?? null);
+  const sessionLiveTime = useLiveTime(0, isActive, activeInfo?.startTime ?? null);
+
+  return (
+    <Card className="cursor-pointer" onClick={onClick}>
+      <CardHeader>
+        <CardTitle className="text-sm font-medium line-clamp-2">
+          {task.taskName}
+        </CardTitle>
+        {task.description && (
+          <CardDescription className="text-xs line-clamp-2">
+            {task.description.length > 100
+              ? task.description.slice(0, 100) + "…"
+              : task.description}
+          </CardDescription>
+        )}
+        <CardAction>
+          <div className="flex flex-col items-end gap-1">
+            <span className={`text-xs font-semibold ${priorityColors[sev]}`}>
+              {task.taskSeverity.displayName}
+            </span>
+          </div>
+        </CardAction>
+      </CardHeader>
+      <CardFooter
+        className="flex items-end justify-between gap-2 mt-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            {formatStopwatch(totalLiveTime)}
+          </span>
+          {isActive && (
+            <span className="text-[10px] text-blue-500 font-mono">
+              session: {formatStopwatch(sessionLiveTime)}
+            </span>
+          )}
+          {task.dueDate && (
+            <span className="text-[10px] text-muted-foreground">
+              ETA: {format(new Date(task.dueDate), "MMM d")}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <StatusSelect
+            value={task.taskStatus.statusName}
+            onValueChange={(value) => onStatusChange(task.taskId, value)}
+            statuses={statuses}
+            className="text-xs"
+          />
+          <Button
+            variant={isActive ? "destructive" : "outline"}
+            className="text-xs"
+            disabled={!isActive && task.taskStatus.precedence > 1}
+            onClick={(e) =>
+              isActive
+                ? onStop(e, task.taskId)
+                : onStart(e, task.taskId)
+            }
+          >
+            {isActive ? (
+              <>
+                <Stop weight="fill" className="mr-1 h-3 w-3" /> Stop
+              </>
+            ) : (
+              <>
+                <Play weight="fill" className="mr-1 h-3 w-3" /> Start
+              </>
+            )}
+          </Button>
+        </div>
+      </CardFooter>
+    </Card>
+  );
+}
 
 function TasksContent() {
   const router = useRouter();
@@ -102,10 +192,7 @@ function TasksContent() {
   const [newDueDate, setNewDueDate] = useState("");
   const [creating, setCreating] = useState(false);
 
-  const [activeSession, setActiveSession] = useState<{
-    taskId: string;
-    sessionId: string;
-  } | null>(null);
+  const [activeSessions, setActiveSessions] = useState<Map<string, { sessionId: string; startTime: string }>>(new Map());
 
   // Set form defaults once lookups are available
   useEffect(() => {
@@ -141,11 +228,11 @@ function TasksContent() {
     apiFetch("/api/time-sessions/active")
       .then((res) => res.json())
       .then((data) => {
-        if (data.data?.taskId && data.data?.taskSessionId)
-          setActiveSession({
-            taskId: data.data.taskId,
-            sessionId: data.data.taskSessionId,
-          });
+        const map = new Map<string, { sessionId: string; startTime: string }>();
+        for (const s of data.data ?? []) {
+          map.set(s.task.taskId, { sessionId: s.taskSessionId, startTime: s.startTime });
+        }
+        setActiveSessions(map);
       })
       .catch(() => {});
   }, []);
@@ -202,21 +289,31 @@ function TasksContent() {
     });
     const data = await res.json();
     if (data.data?.taskSessionId)
-      setActiveSession({ taskId, sessionId: data.data.taskSessionId });
+      setActiveSessions((prev) =>
+        new Map(prev).set(taskId, {
+          sessionId: data.data.taskSessionId,
+          startTime: data.data.startTime ?? new Date().toISOString(),
+        })
+      );
     fetchTasks();
   };
 
   const stopTimer = async (
     e: React.MouseEvent,
     taskId: string,
-    sessionId: string,
   ) => {
     e.preventDefault();
     e.stopPropagation();
+    const sessionId = activeSessions.get(taskId)?.sessionId;
+    if (!sessionId) return;
     await apiFetch(`/api/tasks/${taskId}/time-sessions/${sessionId}`, {
       method: "PATCH",
     });
-    setActiveSession(null);
+    setActiveSessions((prev) => {
+      const next = new Map(prev);
+      next.delete(taskId);
+      return next;
+    });
     fetchTasks();
   };
 
@@ -396,83 +493,18 @@ function TasksContent() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {tasks.map((task) => {
-            const sev = task.taskSeverity.severityName;
-            const isActive = activeSession?.taskId === task.taskId;
-            return (
-              <Card
-                key={task.taskId}
-                className="cursor-pointer"
-                onClick={() => router.push(`/tasks/${task.taskId}`)}
-              >
-                <CardHeader>
-                  <CardTitle className="text-sm font-medium line-clamp-2">
-                    {task.taskName}
-                  </CardTitle>
-                  {task.description && (
-                    <CardDescription className="text-xs line-clamp-2">
-                      {task.description.length > 100
-                        ? task.description.slice(0, 100) + "…"
-                        : task.description}
-                    </CardDescription>
-                  )}
-                  <CardAction>
-                    <div className="flex flex-col items-end gap-1">
-                      <span
-                        className={`text-xs font-semibold ${priorityColors[sev]}`}
-                      >
-                        {task.taskSeverity.displayName}
-                      </span>
-                    </div>
-                  </CardAction>
-                </CardHeader>
-                <CardFooter
-                  className="flex items-end justify-between gap-2 mt-auto"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                    <span className="text-[10px] text-muted-foreground">
-                      {format(new Date(task.createdAt), "MMM d, yyyy")}
-                    </span>
-                    {task.dueDate && (
-                      <span className="text-[10px] text-muted-foreground">
-                        ETA: {format(new Date(task.dueDate), "MMM d")}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <StatusSelect
-                      value={task.taskStatus.statusName}
-                      onValueChange={(value) =>
-                        handleStatusChange(task.taskId, value)
-                      }
-                      statuses={statuses}
-                      className="text-xs"
-                    />
-                    <Button
-                      variant={isActive ? "destructive" : "outline"}
-                      className="text-xs"
-                      onClick={(e) =>
-                        isActive && activeSession
-                          ? stopTimer(e, task.taskId, activeSession.sessionId)
-                          : startTimer(e, task.taskId)
-                      }
-                    >
-                      {isActive ? (
-                        <>
-                          <Stop weight="fill" className="mr-1 h-3 w-3" /> Stop
-                        </>
-                      ) : (
-                        <>
-                          <Play weight="fill" className="mr-1 h-3 w-3" /> Start
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </CardFooter>
-              </Card>
-            );
-          })}
+          {tasks.map((task) => (
+            <TaskCard
+              key={task.taskId}
+              task={task}
+              activeInfo={activeSessions.get(task.taskId)}
+              statuses={statuses}
+              onStatusChange={handleStatusChange}
+              onStart={startTimer}
+              onStop={stopTimer}
+              onClick={() => router.push(`/tasks/${task.taskId}`)}
+            />
+          ))}
         </div>
       )}
     </div>
