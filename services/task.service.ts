@@ -4,9 +4,11 @@ import { logActivity } from "./activity-log.service";
 import { resolveTaskStatusId, resolveTaskSeverityId, resolveSourceId } from "@/lib/lookup";
 import { taskData } from "@/lib/data/task.data";
 import { taskActivityData } from "@/lib/data/task-activity.data";
+import prisma from "@/lib/prisma";
+import { taskSessionData } from "@/lib/data/task-session.data";
 
 const taskInclude = {
-  taskStatus: { select: { statusName: true, displayName: true } },
+  taskStatus: { select: { statusName: true, displayName: true, precedence: true } },
   taskSeverity: { select: { severityName: true, displayName: true } },
   creationSource: { select: { sourceName: true, displayName: true } },
   _count: { select: { comments: true, timeSessions: true } },
@@ -111,8 +113,40 @@ export async function updateTask(taskId: string, input: UpdateTaskInput, userId:
   if (input.isActive !== undefined) updateData.isActive = input.isActive;
 
   if (input.status !== undefined) {
-    const statusId = await resolveTaskStatusId(input.status);
-    updateData.taskStatus = { connect: { id: statusId } };
+    const newStatusRecord = await prisma.taskStatus.findFirst({
+      where: { statusName: input.status },
+    });
+    if (!newStatusRecord) throw new Error(`Unknown status: ${input.status}`);
+    updateData.taskStatus = { connect: { id: newStatusRecord.id } };
+
+    if (newStatusRecord.precedence > 1) {
+      const activeSession = await taskSessionData.find({
+        taskId: existing.id,
+        activeSession: true,
+        isActive: true,
+      });
+      if (activeSession) {
+        const endTime = new Date();
+        const duration = Math.floor(
+          (endTime.getTime() - (activeSession as any).startTime.getTime()) / 1000
+        );
+        await taskSessionData.update(
+          { id: (activeSession as any).id },
+          { endTime, duration, activeSession: false }
+        );
+        await taskData.update(
+          { id: existing.id },
+          { totalWorkTime: { increment: duration } }
+        );
+        await logActivity(
+          "time_stopped",
+          `Timer auto-stopped (status → ${input.status})`,
+          userId,
+          taskId,
+          { sessionId: (activeSession as any).taskSessionId, duration }
+        );
+      }
+    }
   }
   if (input.priority !== undefined) {
     const severityId = await resolveTaskSeverityId(input.priority);

@@ -17,6 +17,7 @@ export async function getDashboard(userId: number): Promise<DashboardData> {
     weekSessions,
     todayCompleted,
     allTasks,
+    activeSessionsQuery,
   ] = await Promise.all([
     taskSessionData.findMany(
       { startTime: { gte: todayStart, lte: todayEnd }, createdBy: userId, isActive: true },
@@ -36,6 +37,13 @@ export async function getDashboard(userId: number): Promise<DashboardData> {
       { createdBy: userId, isActive: true },
       { include: { taskStatus: true, taskSeverity: true } }
     ),
+    taskSessionData.findMany(
+      { createdBy: userId, activeSession: true, isActive: true },
+      {
+        include: { task: { select: { taskId: true, taskName: true } } },
+        orderBy: { startTime: "asc" },
+      }
+    ),
   ]);
 
   // ── Today ──────────────────────────────────────────────────────────────────
@@ -53,17 +61,17 @@ export async function getDashboard(userId: number): Promise<DashboardData> {
   const todayIsRunning = !!todayActiveSession;
   const todaySessionStartedAt = todayActiveSession?.startTime?.toISOString() ?? null;
 
-  // Active task = most recently started active session
-  const latestActive = (todaySessions as any[])
-    .filter((s) => s.activeSession)
-    .sort((a, b) => b.startTime.getTime() - a.startTime.getTime())[0];
-
-  const activeTask = latestActive
+  // Active task = oldest-started running session (date-unrestricted)
+  const firstActive = (activeSessionsQuery as any[])[0] ?? null;
+  const activeTask = firstActive
     ? {
-        taskId: latestActive.task.taskId,
-        taskName: latestActive.task.taskName,
-        sessionStartedAt: latestActive.startTime.toISOString(),
-        taskTimeSeconds: latestActive.task.totalWorkTime ?? 0,
+        taskId: firstActive.task.taskId,
+        taskName: firstActive.task.taskName,
+        sessionStartedAt: firstActive.startTime.toISOString(),
+        totalActiveCount: (activeSessionsQuery as any[]).length,
+        activeTaskNames: (activeSessionsQuery as any[]).map(
+          (s: any) => s.task.taskName as string
+        ),
       }
     : null;
 

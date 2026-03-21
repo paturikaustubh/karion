@@ -5,7 +5,12 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { apiFetch } from "@/lib/api-client";
 import { useLiveTime } from "@/lib/hooks/use-live-time";
-import { formatDuration } from "@/lib/time-utils";
+import { formatDuration, formatStopwatch } from "@/lib/time-utils";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 import { useAuth } from "@/components/providers/auth-provider";
 import {
   Card,
@@ -47,7 +52,7 @@ const statusColors: Record<string, string> = {
 
 function ActiveTaskCard({ data }: { data: DashboardData["activeTask"] }) {
   const liveTime = useLiveTime(
-    data?.taskTimeSeconds ?? 0,
+    0,
     !!data,
     data?.sessionStartedAt ?? null,
   );
@@ -80,10 +85,23 @@ function ActiveTaskCard({ data }: { data: DashboardData["activeTask"] }) {
           <Play className="h-3.5 w-3.5 text-blue-500" weight="fill" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium">{data.taskName}</p>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <p className="truncate text-sm font-medium underline decoration-dotted cursor-default">
+                {data.totalActiveCount} {data.totalActiveCount === 1 ? "task" : "tasks"}
+              </p>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-64">
+              <ol className="list-decimal list-inside space-y-0.5 text-xs">
+                {data.activeTaskNames.map((name, i) => (
+                  <li key={i} className="truncate">{name}</li>
+                ))}
+              </ol>
+            </TooltipContent>
+          </Tooltip>
         </div>
         <span className="shrink-0 text-xs font-mono text-blue-500">
-          {formatDuration(liveTime)}
+          {formatStopwatch(liveTime)}
         </span>
       </CardContent>
     </Card>
@@ -245,11 +263,11 @@ export default function DashboardPage() {
               <CardTitle>Hours This Week</CardTitle>
               <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
                 <span className="flex items-center gap-1">
-                  <span className="inline-block h-2 w-2 rounded-sm bg-[var(--chart-1)]" />
+                  <span className="inline-block h-2 w-2 rounded-sm bg-chart-1" />
                   Wall clock
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="inline-block h-2 w-2 rounded-sm bg-[var(--chart-2)]" />
+                  <span className="inline-block h-2 w-2 rounded-sm bg-chart-2" />
                   Task time
                 </span>
               </div>
