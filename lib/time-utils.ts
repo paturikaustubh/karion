@@ -1,3 +1,11 @@
+import { format } from "date-fns";
+
+export function formatDateTime(iso: string | Date, fmt: "12h" | "24h"): string {
+  const d = typeof iso === "string" ? new Date(iso) : iso;
+  const timePart = fmt === "12h" ? format(d, "h:mm a") : format(d, "HH:mm");
+  return `${format(d, "d MMM, yy")}, ${timePart}`;
+}
+
 /**
  * Merges overlapping session intervals and returns total wall-clock seconds.
  * Sessions with null endTime are treated as still running (endTime = now).

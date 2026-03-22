@@ -24,7 +24,10 @@ export async function POST(request: NextRequest) {
       return err("Invalid credentials", "Password does not match", 401);
     }
 
-    const authToken = await createSession(user.id);
+    const authToken = await createSession(user.id, {
+      userUuid: user.userId,
+      username: user.username,
+    });
     return ok(`Welcome back, ${user.fullName}!`, {
       userId: user.userId,
       fullName: user.fullName,

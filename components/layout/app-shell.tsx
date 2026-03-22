@@ -32,7 +32,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setSidebarOpen(open);
     apiFetch("/api/user/settings", {
       method: "PATCH",
-      body: JSON.stringify({ settings: { sidebar_state: open ? "open" : "collapsed" } }),
+      body: JSON.stringify({
+        settings: { sidebar_state: open ? "open" : "collapsed" },
+      }),
       silent: true,
     }).catch(() => {});
   };
@@ -47,9 +49,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <SidebarInset className="flex flex-col min-h-0">
             <AppHeader />
             <div className="relative flex-1 overflow-auto">
-              <div className="absolute inset-0 p-6">
-                {children}
-              </div>
+              <div className="absolute inset-0 p-6">{children}</div>
             </div>
           </SidebarInset>
         </SidebarProvider>

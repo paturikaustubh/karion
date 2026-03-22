@@ -13,4 +13,7 @@ export const reportConfigData = {
     create: Prisma.ReportConfigCreateInput,
     update: Prisma.ReportConfigUpdateInput
   ) => prisma.reportConfig.upsert({ where, create, update }),
+
+  findMany: (where: Prisma.ReportConfigWhereInput) =>
+    prisma.reportConfig.findMany({ where }),
 };
