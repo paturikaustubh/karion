@@ -1,8 +1,10 @@
-import { generateReportContent } from "./ai.service";
 import { logActivity } from "./activity-log.service";
 import { taskData } from "@/lib/data/task.data";
 import { taskActivityData } from "@/lib/data/task-activity.data";
 import { reportData } from "@/lib/data/report.data";
+import { extractPipelineData } from "./report-pipeline";
+import { generateReportProse } from "./report-ai";
+import { assembleReport } from "./report-template";
 
 export async function generateReport(dateStr: string, userId: number) {
   const startOfDay = new Date(dateStr + "T00:00:00.000Z");
@@ -37,16 +39,19 @@ export async function generateReport(dateStr: string, userId: number) {
     { orderBy: { createdAt: "asc" } }
   );
 
+  // Build structuredData for DB storage (kept for record-keeping)
   const structuredData = {
     date: dateStr,
-    tasks: (tasks as any[]).map((task: any) => {
-      const totalTimeSeconds = task.timeSessions.reduce((sum: number, s: any) => {
+    tasks: tasks.map((task: any) => {
+      const totalTimeSeconds = (task.timeSessions ?? []).reduce((sum: number, s: any) => {
         if (s.duration) return sum + s.duration;
         if (s.activeSession) return sum + Math.floor((Date.now() - s.startTime.getTime()) / 1000);
         return sum;
       }, 0);
       return {
+        taskId: task.taskId,
         taskName: task.taskName,
+        description: task.description ?? "",
         statusName: task.taskStatus.statusName,
         severityName: task.taskSeverity.severityName,
         totalTimeSeconds,
@@ -58,7 +63,7 @@ export async function generateReport(dateStr: string, userId: number) {
     }),
     totalTimeSeconds: 0,
     tasksCompleted: 0,
-    activities: (activities as any[]).map((a: any) => ({
+    activities: activities.map((a: any) => ({
       activityType: a.activityType,
       description: a.description,
       createdAt: a.createdAt.toISOString(),
@@ -68,7 +73,10 @@ export async function generateReport(dateStr: string, userId: number) {
   structuredData.totalTimeSeconds = structuredData.tasks.reduce((sum, t) => sum + t.totalTimeSeconds, 0);
   structuredData.tasksCompleted = structuredData.tasks.filter((t) => t.statusName === "completed").length;
 
-  const content = await generateReportContent(structuredData);
+  // Three-phase pipeline
+  const pipeline = extractPipelineData(dateStr, tasks);
+  const prose = await generateReportProse(pipeline);
+  const content = assembleReport(dateStr, pipeline, prose);
 
   const report = await reportData.upsert(
     { reportDate: startOfDay },
