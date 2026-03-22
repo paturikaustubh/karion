@@ -11,7 +11,14 @@ type ReportConfig = {
 };
 
 export function shouldRunNow(config: ReportConfig): boolean {
+  if (!config.scheduledTime) return false;
+
   const now = new Date();
+  const currentUTCMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
+  const [configH, configM] = config.scheduledTime.split(":").map(Number);
+  const configUTCMinutes = configH * 60 + configM;
+
+  if (Math.abs(currentUTCMinutes - configUTCMinutes) > 4) return false;
 
   if (config.frequency === "daily") return true;
 
