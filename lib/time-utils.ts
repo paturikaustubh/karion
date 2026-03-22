@@ -1,7 +1,7 @@
 import { format } from "date-fns";
 
-export function formatDateTime(iso: string, fmt: "12h" | "24h"): string {
-  const d = new Date(iso);
+export function formatDateTime(iso: string | Date, fmt: "12h" | "24h"): string {
+  const d = typeof iso === "string" ? new Date(iso) : iso;
   const timePart = fmt === "12h" ? format(d, "h:mm a") : format(d, "HH:mm");
   return `${format(d, "d MMM, yy")}, ${timePart}`;
 }
