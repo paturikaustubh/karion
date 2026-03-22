@@ -15,7 +15,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { format, parseISO } from "date-fns";
 import { useUserSettings } from "@/components/providers/user-settings-provider";
-import { formatDateTime } from "@/lib/time-utils";
 
 interface Report {
   id: string;
@@ -125,7 +124,11 @@ export default function ReportDetailPage({
           </h2>
           <p className="text-xs text-muted-foreground">
             Generated{" "}
-            {`${format(new Date(report.generatedAt), "MMMM d, yyyy")} at ${timeFormat === "12h" ? format(new Date(report.generatedAt), "h:mm a") : format(new Date(report.generatedAt), "HH:mm")}`}
+            {`${format(new Date(report.generatedAt), "MMMM d, yyyy")} at ${
+              timeFormat === "12h"
+                ? format(new Date(report.generatedAt), "h:mm a")
+                : format(new Date(report.generatedAt), "HH:mm")
+            }`}
           </p>
         </div>
       </div>
