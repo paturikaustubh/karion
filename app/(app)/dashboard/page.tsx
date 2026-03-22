@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
-import { apiFetch } from "@/lib/api-client";
 import { useLiveTime } from "@/lib/hooks/use-live-time";
-import { formatDuration, formatStopwatch } from "@/lib/time-utils";
+import {
+  formatDuration,
+  formatStopwatch,
+  formatDateTime,
+} from "@/lib/time-utils";
+import { useUserSettings } from "@/components/providers/user-settings-provider";
 import {
   Tooltip,
   TooltipTrigger,
@@ -36,7 +39,8 @@ import {
   ArrowRight,
   FileText,
 } from "@phosphor-icons/react";
-import type { DashboardData, ActivityLogItem } from "@/lib/types";
+import type { DashboardData } from "@/lib/types";
+import { useDashboardData } from "@/lib/hooks/use-dashboard-data";
 
 const chartConfig = {
   wallClock: { label: "Wall Clock", color: "var(--chart-1)" },
@@ -51,11 +55,7 @@ const statusColors: Record<string, string> = {
 };
 
 function ActiveTaskCard({ data }: { data: DashboardData["activeTask"] }) {
-  const liveTime = useLiveTime(
-    0,
-    !!data,
-    data?.sessionStartedAt ?? null,
-  );
+  const liveTime = useLiveTime(0, !!data, data?.sessionStartedAt ?? null);
 
   if (!data) {
     return (
@@ -88,13 +88,16 @@ function ActiveTaskCard({ data }: { data: DashboardData["activeTask"] }) {
           <Tooltip>
             <TooltipTrigger asChild>
               <p className="truncate text-sm font-medium underline decoration-dotted cursor-default">
-                {data.totalActiveCount} {data.totalActiveCount === 1 ? "task" : "tasks"}
+                {data.totalActiveCount}{" "}
+                {data.totalActiveCount === 1 ? "task" : "tasks"}
               </p>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="max-w-64">
               <ol className="list-decimal list-inside space-y-0.5 text-xs">
                 {data.activeTaskNames.map((name, i) => (
-                  <li key={i} className="truncate">{name}</li>
+                  <li key={i} className="truncate">
+                    {name}
+                  </li>
                 ))}
               </ol>
             </TooltipContent>
@@ -137,28 +140,8 @@ function TodayTimeCard({
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [activities, setActivities] = useState<ActivityLogItem[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchAll = useCallback(async () => {
-    try {
-      const [dashRes, actRes] = await Promise.all([
-        apiFetch("/api/dashboard").then((r) => r.json()),
-        apiFetch("/api/activity-log?limit=8").then((r) => r.json()),
-      ]);
-      setData(dashRes.data ?? null);
-      setActivities(actRes.data ?? []);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchAll();
-  }, [fetchAll]);
+  const { data, activities, loading } = useDashboardData();
+  const { timeFormat } = useUserSettings();
 
   if (loading) {
     return (
@@ -180,8 +163,8 @@ export default function DashboardPage() {
 
   const weekChartData = (data?.weekDailyStats ?? []).map((d) => ({
     day: format(new Date(d.date + "T12:00:00"), "EEE"),
-    wallClock: Math.round(d.wallClockSeconds / 60),
-    taskTime: Math.round(d.taskTimeSeconds / 60),
+    wallClock: Math.round(d.wallClockSeconds / 60 / 60),
+    taskTime: Math.round(d.taskTimeSeconds / 60 / 60),
   }));
 
   return (
@@ -189,7 +172,7 @@ export default function DashboardPage() {
       {/* Header */}
       <div>
         <h2 className="text-xl font-bold tracking-tight">
-          Welcome back{user ? `, ${user.fullName.split(" ")[0]}` : ""}
+          Welcome {user ? `${user.fullName.split(" ")[0]}` : ""}
         </h2>
         <p className="text-xs text-muted-foreground mt-0.5">
           Here&apos;s your day at a glance.
@@ -297,7 +280,7 @@ export default function DashboardPage() {
                 />
                 <ChartTooltip
                   content={
-                    <ChartTooltipContent formatter={(value) => `${value}m`} />
+                    <ChartTooltipContent formatter={(value) => `${value}h`} />
                   }
                 />
                 <Bar
@@ -390,7 +373,7 @@ export default function DashboardPage() {
                       {a.description}
                     </p>
                     <p className="text-[11px] text-muted-foreground">
-                      {format(new Date(a.createdAt), "MMM d, HH:mm")}
+                      {formatDateTime(a.createdAt, timeFormat)}
                     </p>
                   </div>
                 </div>

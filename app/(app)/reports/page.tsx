@@ -25,6 +25,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
+import { useUserSettings } from "@/components/providers/user-settings-provider";
+import { formatDateTime } from "@/lib/time-utils";
 
 interface ReportItem {
   reportDate: string;
@@ -34,10 +37,19 @@ interface ReportItem {
 
 interface ReportConfig {
   frequency: string;
-  time: string;
-  daysOfWeek: number[];
-  daysOfMonth: number[];
+  scheduledTime: string;
+  datesDays: string[];
 }
+
+const WEEK_DAYS = [
+  { key: "Mo", label: "M" },
+  { key: "Tu", label: "T" },
+  { key: "We", label: "W" },
+  { key: "Th", label: "T" },
+  { key: "Fr", label: "F" },
+  { key: "Sa", label: "S" },
+  { key: "Su", label: "S" },
+];
 
 function ReportsContent() {
   const searchParams = useSearchParams();
@@ -51,11 +63,11 @@ function ReportsContent() {
 
   // Configuration state
   const [configOpen, setConfigOpen] = useState(false);
+  const { timeFormat } = useUserSettings();
   const [config, setConfig] = useState<ReportConfig>({
-    frequency: "DAILY",
-    time: "09:00",
-    daysOfWeek: [],
-    daysOfMonth: [],
+    frequency: "none",
+    scheduledTime: "09:00",
+    datesDays: [],
   });
   const [savingConfig, setSavingConfig] = useState(false);
 
@@ -76,7 +88,11 @@ function ReportsContent() {
       const res = await apiFetch("/api/report-config");
       const data = await res.json();
       if (data.success && data.data) {
-        setConfig(data.data);
+        setConfig({
+          frequency: data.data.frequency ?? "none",
+          scheduledTime: data.data.scheduledTime ?? "09:00",
+          datesDays: data.data.datesDays ?? [],
+        });
       }
     } catch (error) {
       console.error("Failed to fetch config:", error);
@@ -112,7 +128,11 @@ function ReportsContent() {
     try {
       const res = await apiFetch("/api/report-config", {
         method: "PUT",
-        body: JSON.stringify(config),
+        body: JSON.stringify({
+          frequency: config.frequency,
+          scheduledTime: config.scheduledTime,
+          datesDays: config.datesDays,
+        }),
       });
       if (res.ok) {
         setConfigOpen(false);
@@ -157,15 +177,16 @@ function ReportsContent() {
                     <Label>Frequency</Label>
                     <Select
                       value={config.frequency}
-                      onValueChange={(val) => setConfig({ ...config, frequency: val })}
+                      onValueChange={(val) => setConfig({ ...config, frequency: val, datesDays: [] })}
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="DAILY">Daily</SelectItem>
-                        <SelectItem value="WEEKLY">Weekly</SelectItem>
-                        <SelectItem value="MONTHLY">Monthly</SelectItem>
+                        <SelectItem value="none">None</SelectItem>
+                        <SelectItem value="daily">Daily</SelectItem>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="monthly">Monthly</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -173,43 +194,65 @@ function ReportsContent() {
                     <Label>Time</Label>
                     <Input
                       type="time"
-                      value={config.time}
-                      onChange={(e) => setConfig({ ...config, time: e.target.value })}
+                      value={config.scheduledTime}
+                      onChange={(e) => setConfig({ ...config, scheduledTime: e.target.value })}
                     />
                   </div>
                 </div>
 
-                {config.frequency === "WEEKLY" && (
+                {config.frequency === "weekly" && (
                   <div className="space-y-2">
-                    <Label>Days of Week (Comma separated 1-7, 1=Mon)</Label>
-                    <Input
-                      placeholder="e.g. 1, 3, 5"
-                      value={config.daysOfWeek.join(", ")}
-                      onChange={(e) => {
-                        const vals = e.target.value
-                          .split(",")
-                          .map((v) => parseInt(v.trim()))
-                          .filter((v) => !isNaN(v) && v >= 1 && v <= 7);
-                        setConfig({ ...config, daysOfWeek: vals });
-                      }}
-                    />
+                    <Label>Days of the Week</Label>
+                    <div className="flex gap-1.5">
+                      {WEEK_DAYS.map((d) => (
+                        <button
+                          key={d.key}
+                          type="button"
+                          onClick={() => {
+                            const next = config.datesDays.includes(d.key)
+                              ? config.datesDays.filter((v) => v !== d.key)
+                              : [...config.datesDays, d.key];
+                            setConfig({ ...config, datesDays: next });
+                          }}
+                          className={cn(
+                            "flex size-9 items-center justify-center rounded-md border text-sm font-medium transition-colors cursor-pointer",
+                            config.datesDays.includes(d.key)
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-input bg-background text-muted-foreground hover:bg-muted",
+                          )}
+                        >
+                          {d.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
 
-                {config.frequency === "MONTHLY" && (
+                {config.frequency === "monthly" && (
                   <div className="space-y-2">
-                    <Label>Dates of Month (Comma separated 1-31)</Label>
-                    <Input
-                      placeholder="e.g. 1, 15"
-                      value={config.daysOfMonth.join(", ")}
-                      onChange={(e) => {
-                        const vals = e.target.value
-                          .split(",")
-                          .map((v) => parseInt(v.trim()))
-                          .filter((v) => !isNaN(v) && v >= 1 && v <= 31);
-                        setConfig({ ...config, daysOfMonth: vals });
-                      }}
-                    />
+                    <Label>Dates of the Month</Label>
+                    <div className="inline-grid grid-cols-7 gap-1 rounded-lg border p-2">
+                      {Array.from({ length: 31 }, (_, i) => String(i + 1)).map((d) => (
+                        <button
+                          key={d}
+                          type="button"
+                          onClick={() => {
+                            const next = config.datesDays.includes(d)
+                              ? config.datesDays.filter((v) => v !== d)
+                              : [...config.datesDays, d];
+                            setConfig({ ...config, datesDays: next });
+                          }}
+                          className={cn(
+                            "flex size-9 items-center justify-center rounded-md text-xs font-medium transition-colors cursor-pointer",
+                            config.datesDays.includes(d)
+                              ? "bg-primary text-primary-foreground"
+                              : "text-muted-foreground hover:bg-muted",
+                          )}
+                        >
+                          {d}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
 
@@ -323,7 +366,7 @@ function ReportsContent() {
                           {format(parseISO(report.reportDate), "EEEE, MMMM d, yyyy")}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          Generated {format(new Date(report.generatedAt), "MMM d, HH:mm")}
+                          Generated {formatDateTime(report.generatedAt, timeFormat)}
                         </p>
                       </div>
                     </div>
