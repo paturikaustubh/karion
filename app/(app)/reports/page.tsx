@@ -4,7 +4,13 @@ import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api-client";
 import Link from "next/link";
-import { FileText, Plus, CalendarBlank, SpinnerGap, Gear } from "@phosphor-icons/react";
+import {
+  FileText,
+  Plus,
+  CalendarBlank,
+  SpinnerGap,
+  Gear,
+} from "@phosphor-icons/react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -25,6 +31,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
+import { useUserSettings } from "@/components/providers/user-settings-provider";
+import { formatDateTime } from "@/lib/time-utils";
 
 interface ReportItem {
   reportDate: string;
@@ -34,9 +43,32 @@ interface ReportItem {
 
 interface ReportConfig {
   frequency: string;
-  time: string;
-  daysOfWeek: number[];
-  daysOfMonth: number[];
+  scheduledTime: string;
+  datesDays: string[];
+}
+
+const WEEK_DAYS = [
+  { key: "Mo", label: "M" },
+  { key: "Tu", label: "T" },
+  { key: "We", label: "W" },
+  { key: "Th", label: "T" },
+  { key: "Fr", label: "F" },
+  { key: "Sa", label: "S" },
+  { key: "Su", label: "S" },
+];
+
+function localToUTC(hhmm: string): string {
+  const [h, m] = hhmm.split(":").map(Number);
+  const d = new Date();
+  d.setHours(h, m, 0, 0);
+  return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+}
+
+function utcToLocal(hhmm: string): string {
+  const [h, m] = hhmm.split(":").map(Number);
+  const d = new Date();
+  d.setUTCHours(h, m, 0, 0);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
 function ReportsContent() {
@@ -44,18 +76,19 @@ function ReportsContent() {
   const [reports, setReports] = useState<ReportItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [generateOpen, setGenerateOpen] = useState(
-    searchParams.get("action") === "generate"
+    searchParams.get("action") === "generate",
   );
   const [dateInput, setDateInput] = useState(format(new Date(), "yyyy-MM-dd"));
   const [generating, setGenerating] = useState(false);
 
   // Configuration state
   const [configOpen, setConfigOpen] = useState(false);
+  const [configLoaded, setConfigLoaded] = useState(false);
+  const { timeFormat } = useUserSettings();
   const [config, setConfig] = useState<ReportConfig>({
-    frequency: "DAILY",
-    time: "09:00",
-    daysOfWeek: [],
-    daysOfMonth: [],
+    frequency: "none",
+    scheduledTime: "09:00",
+    datesDays: [],
   });
   const [savingConfig, setSavingConfig] = useState(false);
 
@@ -75,11 +108,19 @@ function ReportsContent() {
     try {
       const res = await apiFetch("/api/report-config");
       const data = await res.json();
-      if (data.success && data.data) {
-        setConfig(data.data);
+      if (data.data) {
+        setConfig({
+          frequency: data.data.frequency ?? "none",
+          scheduledTime: data.data.scheduledTime ? utcToLocal(data.data.scheduledTime) : "09:00",
+          datesDays: Array.isArray(data.data.datesDays)
+            ? (data.data.datesDays as string[])
+            : [],
+        });
       }
     } catch (error) {
       console.error("Failed to fetch config:", error);
+    } finally {
+      setConfigLoaded(true);
     }
   }, []);
 
@@ -112,7 +153,11 @@ function ReportsContent() {
     try {
       const res = await apiFetch("/api/report-config", {
         method: "PUT",
-        body: JSON.stringify(config),
+        body: JSON.stringify({
+          frequency: config.frequency,
+          scheduledTime: config.scheduledTime ? localToUTC(config.scheduledTime) : null,
+          datesDays: config.datesDays,
+        }),
       });
       if (res.ok) {
         setConfigOpen(false);
@@ -125,12 +170,15 @@ function ReportsContent() {
   };
 
   // Group reports by month
-  const grouped = reports.reduce<Record<string, ReportItem[]>>((acc, report) => {
-    const month = format(parseISO(report.reportDate), "MMMM yyyy");
-    if (!acc[month]) acc[month] = [];
-    acc[month].push(report);
-    return acc;
-  }, {});
+  const grouped = reports.reduce<Record<string, ReportItem[]>>(
+    (acc, report) => {
+      const month = format(parseISO(report.reportDate), "MMMM yyyy");
+      if (!acc[month]) acc[month] = [];
+      acc[month].push(report);
+      return acc;
+    },
+    {},
+  );
 
   return (
     <div className="space-y-6">
@@ -143,8 +191,8 @@ function ReportsContent() {
           {/* Configuration Dialog */}
           <Dialog open={configOpen} onOpenChange={setConfigOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Gear className="mr-1.5 h-4 w-4" /> Configure
+              <Button variant="outline" size="sm" disabled={!configLoaded}>
+                <Gear className="mr-1.5" /> Configure
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
@@ -157,15 +205,18 @@ function ReportsContent() {
                     <Label>Frequency</Label>
                     <Select
                       value={config.frequency}
-                      onValueChange={(val) => setConfig({ ...config, frequency: val })}
+                      onValueChange={(val) =>
+                        setConfig({ ...config, frequency: val, datesDays: [] })
+                      }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="DAILY">Daily</SelectItem>
-                        <SelectItem value="WEEKLY">Weekly</SelectItem>
-                        <SelectItem value="MONTHLY">Monthly</SelectItem>
+                        <SelectItem value="none">None</SelectItem>
+                        <SelectItem value="daily">Daily</SelectItem>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="monthly">Monthly</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -173,43 +224,69 @@ function ReportsContent() {
                     <Label>Time</Label>
                     <Input
                       type="time"
-                      value={config.time}
-                      onChange={(e) => setConfig({ ...config, time: e.target.value })}
+                      value={config.scheduledTime}
+                      onChange={(e) =>
+                        setConfig({ ...config, scheduledTime: e.target.value })
+                      }
                     />
                   </div>
                 </div>
 
-                {config.frequency === "WEEKLY" && (
+                {config.frequency === "weekly" && (
                   <div className="space-y-2">
-                    <Label>Days of Week (Comma separated 1-7, 1=Mon)</Label>
-                    <Input
-                      placeholder="e.g. 1, 3, 5"
-                      value={config.daysOfWeek.join(", ")}
-                      onChange={(e) => {
-                        const vals = e.target.value
-                          .split(",")
-                          .map((v) => parseInt(v.trim()))
-                          .filter((v) => !isNaN(v) && v >= 1 && v <= 7);
-                        setConfig({ ...config, daysOfWeek: vals });
-                      }}
-                    />
+                    <Label>Days of the Week</Label>
+                    <div className="flex gap-1.5">
+                      {WEEK_DAYS.map((d) => (
+                        <button
+                          key={d.key}
+                          type="button"
+                          onClick={() => {
+                            const next = config.datesDays.includes(d.key)
+                              ? config.datesDays.filter((v) => v !== d.key)
+                              : [...config.datesDays, d.key];
+                            setConfig({ ...config, datesDays: next });
+                          }}
+                          className={cn(
+                            "flex size-9 items-center justify-center rounded-md border text-sm font-medium transition-colors cursor-pointer",
+                            config.datesDays.includes(d.key)
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-input bg-background text-muted-foreground hover:bg-muted",
+                          )}
+                        >
+                          {d.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
 
-                {config.frequency === "MONTHLY" && (
+                {config.frequency === "monthly" && (
                   <div className="space-y-2">
-                    <Label>Dates of Month (Comma separated 1-31)</Label>
-                    <Input
-                      placeholder="e.g. 1, 15"
-                      value={config.daysOfMonth.join(", ")}
-                      onChange={(e) => {
-                        const vals = e.target.value
-                          .split(",")
-                          .map((v) => parseInt(v.trim()))
-                          .filter((v) => !isNaN(v) && v >= 1 && v <= 31);
-                        setConfig({ ...config, daysOfMonth: vals });
-                      }}
-                    />
+                    <Label>Dates of the Month</Label>
+                    <div className="inline-grid grid-cols-7 gap-1 rounded-lg border p-2">
+                      {Array.from({ length: 31 }, (_, i) => String(i + 1)).map(
+                        (d) => (
+                          <button
+                            key={d}
+                            type="button"
+                            onClick={() => {
+                              const next = config.datesDays.includes(d)
+                                ? config.datesDays.filter((v) => v !== d)
+                                : [...config.datesDays, d];
+                              setConfig({ ...config, datesDays: next });
+                            }}
+                            className={cn(
+                              "flex size-9 items-center justify-center rounded-md text-xs font-medium transition-colors cursor-pointer",
+                              config.datesDays.includes(d)
+                                ? "bg-primary text-primary-foreground"
+                                : "text-muted-foreground hover:bg-muted",
+                            )}
+                          >
+                            {d}
+                          </button>
+                        ),
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -234,40 +311,40 @@ function ReportsContent() {
           <Dialog open={generateOpen} onOpenChange={setGenerateOpen}>
             <DialogTrigger asChild>
               <Button size="sm">
-                <Plus className="mr-1.5 h-4 w-4" /> Generate Report
+                <Plus className="mr-1.5" /> Generate Report
               </Button>
             </DialogTrigger>
-          <DialogContent className="sm:max-w-sm">
-            <DialogHeader>
-              <DialogTitle>Generate Daily Report</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="report-date">Target Date</Label>
-                <Input
-                  id="report-date"
-                  type="date"
-                  value={dateInput}
-                  onChange={(e) => setDateInput(e.target.value)}
-                />
+            <DialogContent className="sm:max-w-sm">
+              <DialogHeader>
+                <DialogTitle>Generate Daily Report</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="report-date">Target Date</Label>
+                  <Input
+                    id="report-date"
+                    type="date"
+                    value={dateInput}
+                    onChange={(e) => setDateInput(e.target.value)}
+                  />
+                </div>
+                <Button
+                  onClick={handleGenerate}
+                  disabled={generating || !dateInput}
+                  className="w-full"
+                >
+                  {generating ? (
+                    <>
+                      <SpinnerGap className="mr-2 h-4 w-4 animate-spin" />
+                      Generating…
+                    </>
+                  ) : (
+                    "Generate Report"
+                  )}
+                </Button>
               </div>
-              <Button
-                onClick={handleGenerate}
-                disabled={generating || !dateInput}
-                className="w-full"
-              >
-                {generating ? (
-                  <>
-                    <SpinnerGap className="mr-2 h-4 w-4 animate-spin" />
-                    Generating…
-                  </>
-                ) : (
-                  "Generate Report"
-                )}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
@@ -279,7 +356,10 @@ function ReportsContent() {
               <Skeleton className="h-3.5 w-24 rounded" />
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="rounded-xl border bg-card p-4 flex items-center gap-3">
+                  <div
+                    key={i}
+                    className="rounded-xl border bg-card p-4 flex items-center gap-3"
+                  >
                     <Skeleton className="h-9 w-9 rounded-lg shrink-0" />
                     <div className="flex-1 space-y-1.5">
                       <Skeleton className="h-3.5 w-3/4 rounded" />
@@ -320,10 +400,14 @@ function ReportsContent() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium group-hover:text-primary transition-colors">
-                          {format(parseISO(report.reportDate), "EEEE, MMMM d, yyyy")}
+                          {format(
+                            parseISO(report.reportDate),
+                            "EEEE, MMMM d, yyyy",
+                          )}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          Generated {format(new Date(report.generatedAt), "MMM d, HH:mm")}
+                          Generated{" "}
+                          {formatDateTime(report.generatedAt, timeFormat)}
                         </p>
                       </div>
                     </div>
@@ -346,7 +430,10 @@ export default function ReportsPage() {
           <Skeleton className="h-3.5 w-24 rounded" />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="rounded-xl border bg-card p-4 flex items-center gap-3">
+              <div
+                key={i}
+                className="rounded-xl border bg-card p-4 flex items-center gap-3"
+              >
                 <Skeleton className="h-9 w-9 rounded-lg shrink-0" />
                 <div className="flex-1 space-y-1.5">
                   <Skeleton className="h-3.5 w-3/4 rounded" />

@@ -1,22 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState, Suspense } from "react";
+import { useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useAuth } from "@/components/providers/auth-provider";
 import { motion } from "framer-motion";
 import { gsap } from "gsap";
-import { toast } from "sonner";
+import { useRedirectIfAuthed } from "@/lib/hooks/use-redirect-if-authed";
+import { useSignInForm } from "@/lib/hooks/use-sign-in-form";
 
 function SignInForm() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const { signIn } = useAuth();
+  const { checking } = useRedirectIfAuthed();
+  const { login, setLogin, password, setPassword, error, loading, handleSubmit } = useSignInForm();
   const cardRef = useRef<HTMLDivElement>(null);
-  const [login, setLogin] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -30,32 +24,7 @@ function SignInForm() {
     return () => ctx.revert();
   }, []);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-    try {
-      const res = await fetch("/api/auth/signin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ login, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.message || "Sign in failed");
-        return;
-      }
-      localStorage.setItem("authToken", data.data.authToken);
-      signIn(data.data);
-      toast.success(data.message);
-      const redirect = searchParams.get("redirect") || "/dashboard";
-      router.push(redirect);
-    } catch {
-      setError("Something went wrong");
-    } finally {
-      setLoading(false);
-    }
-  }
+  if (checking) return null;
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4" style={{ background: "linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)" }}>
