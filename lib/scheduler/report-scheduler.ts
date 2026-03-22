@@ -1,4 +1,3 @@
-import { format } from "date-fns";
 import { reportConfigData } from "@/lib/data/report-config.data";
 import { generateReport } from "@/services/report.service";
 
@@ -11,28 +10,18 @@ type ReportConfig = {
 };
 
 export function shouldRunNow(config: ReportConfig): boolean {
-  if (!config.scheduledTime) return false;
-
   const now = new Date();
-  const currentTime = format(now, "HH:mm");
-  const [configHour, configMin] = config.scheduledTime.split(":").map(Number);
-  const [currentHour, currentMin] = currentTime.split(":").map(Number);
-  const configMinutes = configHour * 60 + configMin;
-  const currentMinutes = currentHour * 60 + currentMin;
-  const diff = Math.abs(currentMinutes - configMinutes);
-
-  if (diff > 4) return false;
 
   if (config.frequency === "daily") return true;
 
   if (config.frequency === "weekly") {
     const dayKeys = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
-    const todayKey = dayKeys[now.getDay()];
+    const todayKey = dayKeys[now.getUTCDay()];
     return config.datesDays.includes(todayKey);
   }
 
   if (config.frequency === "monthly") {
-    const todayDate = String(now.getDate());
+    const todayDate = String(now.getUTCDate());
     return config.datesDays.includes(todayDate);
   }
 
