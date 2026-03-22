@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.4.0](https://github.com/paturikaustubh/karion/compare/karion-v0.3.0...karion-v0.4.0) (2026-03-22)
+
+
+### Features
+
+* add @upstash/redis dependency and refactor analytics and dashbo… ([b13c5cb](https://github.com/paturikaustubh/karion/commit/b13c5cbe32b7a0ff85ed1fb4ef86c940db435868))
+* add @upstash/redis dependency and refactor analytics and dashboard and cron for scheduler ([d6a2b70](https://github.com/paturikaustubh/karion/commit/d6a2b7045bca87325eb071f1cd3fcb63bc7a16fe))
+* better analytics dashboard and redis for faster auth and scheduler for config reports ([b13c5cb](https://github.com/paturikaustubh/karion/commit/b13c5cbe32b7a0ff85ed1fb4ef86c940db435868))
+
 ## [0.3.0](https://github.com/paturikaustubh/karion/compare/karion-v0.2.1...karion-v0.3.0) (2026-03-21)
 
 
