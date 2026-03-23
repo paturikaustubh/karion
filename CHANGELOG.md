@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.0](https://github.com/paturikaustubh/karion/compare/karion-v0.4.0...karion-v0.5.0) (2026-03-23)
+
+
+### Features
+
+* report format revamped and fixed theme change glitch ([8a03b52](https://github.com/paturikaustubh/karion/commit/8a03b521b7592fb7cdf340fc02709c642127f179))
+* report format revamped and fixed theme change glitch ([68a5481](https://github.com/paturikaustubh/karion/commit/68a548185f37f48b19cf0153fb5f0c1257c64980))
+
 ## [0.4.0](https://github.com/paturikaustubh/karion/compare/karion-v0.3.0...karion-v0.4.0) (2026-03-22)
 
 
