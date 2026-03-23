@@ -48,8 +48,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <AppSidebar />
           <SidebarInset className="flex flex-col min-h-0">
             <AppHeader />
-            <div className="relative flex-1 overflow-auto">
-              <div className="absolute inset-0 p-6">{children}</div>
+            <div className="flex-1 overflow-auto">
+              <div className="p-6 pb-10">{children}</div>
             </div>
           </SidebarInset>
         </SidebarProvider>
