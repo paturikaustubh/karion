@@ -10,7 +10,14 @@ import {
   MagnifyingGlass,
   Funnel,
   Clock,
+  CaretDown,
 } from "@phosphor-icons/react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useLiveTime } from "@/lib/hooks/use-live-time";
 import { formatStopwatch } from "@/lib/time-utils";
 import {
@@ -176,6 +183,8 @@ function TasksContent() {
     setPriorityFilter,
     createOpen,
     setCreateOpen,
+    handleCreateOpenChange,
+    handleCancel,
     newTitle,
     setNewTitle,
     newDesc,
@@ -304,22 +313,40 @@ function TasksContent() {
                     onChange={(e) => setNewDueDate(e.target.value)}
                   />
                 </div>
-                <div className="flex gap-2">
-                  <Button
-                    onClick={() => handleCreate(false)}
-                    disabled={!newTitle.trim() || creating}
-                    className="flex-1"
-                  >
-                    {creating ? "Creating…" : "Create"}
-                  </Button>
+                <div className="flex items-center justify-between gap-2">
+                  {/* Cancel — danger outline */}
                   <Button
                     variant="outline"
-                    onClick={() => handleCreate(true)}
-                    disabled={!newTitle.trim() || creating}
-                    className="flex-1"
+                    onClick={handleCancel}
+                    className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
                   >
-                    Create & Open
+                    Cancel
                   </Button>
+                  {/* Split button: Create | ▼ */}
+                  <div className="flex">
+                    <Button
+                      onClick={() => handleCreate(false)}
+                      disabled={!newTitle.trim() || creating}
+                      className="rounded-r-none border-r-0"
+                    >
+                      {creating ? "Creating…" : "Create"}
+                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          disabled={!newTitle.trim() || creating}
+                          className="rounded-l-none px-2"
+                        >
+                          <CaretDown className="h-3.5 w-3.5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleCreate(true)}>
+                          Create and Open
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
               </div>
             </DialogContent>

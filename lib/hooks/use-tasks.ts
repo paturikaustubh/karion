@@ -128,6 +128,20 @@ export function useTasks() {
     }
   };
 
+  const handleCreateOpenChange = (open: boolean) => {
+    setCreateOpen(open);
+  };
+
+  const handleCancel = () => {
+    setNewTitle("");
+    setNewDesc("");
+    setNewPriority(priorities[0]?.value ?? "");
+    setNewStatus(statuses[0]?.value ?? "");
+    setNewDueDate("");
+    setCreateOpen(false);
+  };
+
+
   const handleStatusChange = async (taskId: string, status: string) => {
     const res = await apiFetch(`/api/tasks/${taskId}`, {
       method: "PATCH",
@@ -199,6 +213,8 @@ export function useTasks() {
     setPriorityFilter,
     createOpen,
     setCreateOpen,
+    handleCreateOpenChange,
+    handleCancel,
     newTitle,
     setNewTitle,
     newDesc,
