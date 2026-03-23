@@ -76,6 +76,10 @@ async function tryGemini(input: object): Promise<ReportProse> {
 
   const text = response.text ?? "{}";
   const parsed = JSON.parse(text);
+  // Gemini sometimes double-encodes objects as JSON strings
+  if (typeof parsed.taskOverviews === "string") {
+    try { parsed.taskOverviews = JSON.parse(parsed.taskOverviews); } catch { /* fall through to Zod error */ }
+  }
   return ReportProseSchema.parse(parsed);
 }
 
