@@ -48,13 +48,13 @@ interface ReportConfig {
 }
 
 const WEEK_DAYS = [
+  { key: "Su", label: "S" },
   { key: "Mo", label: "M" },
   { key: "Tu", label: "T" },
   { key: "We", label: "W" },
   { key: "Th", label: "T" },
   { key: "Fr", label: "F" },
   { key: "Sa", label: "S" },
-  { key: "Su", label: "S" },
 ];
 
 function localToUTC(hhmm: string): string {
@@ -86,9 +86,9 @@ function ReportsContent() {
   const [configLoaded, setConfigLoaded] = useState(false);
   const { timeFormat } = useUserSettings();
   const [config, setConfig] = useState<ReportConfig>({
-    frequency: "none",
+    frequency: "weekly",
     scheduledTime: "09:00",
-    datesDays: [],
+    datesDays: ["Mo", "Tu", "We", "Th", "Fr"],
   });
   const [savingConfig, setSavingConfig] = useState(false);
 
