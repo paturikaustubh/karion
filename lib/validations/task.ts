@@ -6,7 +6,7 @@ export const createTaskSchema = z.object({
   status: z.string().default("todo"),
   priority: z.string().default("medium"),
   source: z.string().default("web"),
-  dueDate: z.string().datetime().optional().nullable(),
+  dueDate: z.string().transform((v) => /^\d{4}-\d{2}-\d{2}$/.test(v) ? `${v}T00:00:00Z` : v).pipe(z.string().datetime()).optional().nullable(),
 });
 
 export const updateTaskSchema = z.object({
@@ -14,7 +14,7 @@ export const updateTaskSchema = z.object({
   description: z.string().max(5000).optional(),
   status: z.string().optional(),
   priority: z.string().optional(),
-  dueDate: z.string().datetime().optional().nullable(),
+  dueDate: z.string().transform((v) => /^\d{4}-\d{2}-\d{2}$/.test(v) ? `${v}T00:00:00Z` : v).pipe(z.string().datetime()).optional().nullable(),
   isActive: z.boolean().optional(),
 });
 
