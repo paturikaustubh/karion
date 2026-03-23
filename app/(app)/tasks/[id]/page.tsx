@@ -89,7 +89,6 @@ function formatDuration(seconds: number): string {
   return `${secs}s`;
 }
 
-
 function LiveSessionDuration({ startTime }: { startTime: string }) {
   const elapsed = useLiveTime(0, true, startTime);
   return (
@@ -155,7 +154,8 @@ export default function TaskDetailPage({
     deleteTask,
   } = useTaskDetail(id);
 
-  const activeSession = task?.timeSessions?.find((s) => s.activeSession) ?? null;
+  const activeSession =
+    task?.timeSessions?.find((s) => s.activeSession) ?? null;
   const totalLiveTime = useLiveTime(
     task?.totalWorkTime ?? 0,
     !!activeSession,
@@ -224,8 +224,8 @@ export default function TaskDetailPage({
         {/* LEFT: Description + Tabs */}
         <div className="space-y-4">
           {/* ── Description ─────────────────────── */}
-          <Card>
-            <CardHeader className="pb-2">
+          <Card className="gap-4">
+            <CardHeader>
               <CardTitle className="">Description</CardTitle>
             </CardHeader>
             <CardContent>
@@ -255,7 +255,7 @@ export default function TaskDetailPage({
                 </div>
               ) : (
                 <div
-                  className="cursor-pointer hover:bg-accent rounded p-2 -m-2 transition-colors"
+                  className="cursor-pointer hover:bg-accent rounded transition-colors"
                   onClick={() => setEditingDesc(true)}
                   title="Click to edit"
                 >
@@ -332,7 +332,8 @@ export default function TaskDetailPage({
                                   deleteComment(comment.taskCommentId)
                                 }
                               >
-                                <Trash className="mr-2 h-3.5 w-3.5 text-destructive" /> Delete
+                                <Trash className="mr-2 h-3.5 w-3.5 text-destructive" />{" "}
+                                Delete
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -402,7 +403,9 @@ export default function TaskDetailPage({
                               </TableCell>
                               <TableCell className="text-muted-foreground">
                                 {session.activeSession ? (
-                                  <LiveSessionDuration startTime={session.startTime} />
+                                  <LiveSessionDuration
+                                    startTime={session.startTime}
+                                  />
                                 ) : session.duration ? (
                                   formatDuration(session.duration)
                                 ) : (
