@@ -26,7 +26,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       })
       .catch(() => {})
       .finally(() => setSettingsLoaded(true));
-  }, [setTheme]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleOpenChange = (open: boolean) => {
     setSidebarOpen(open);
