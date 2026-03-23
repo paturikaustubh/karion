@@ -94,7 +94,7 @@ async function tryGroq(input: object): Promise<ReportProse> {
         json_schema: {
           name: "ReportProse",
           schema: (jsonSchema as any).definitions?.ReportProse ?? jsonSchema,
-          strict: true,
+          strict: false,
         },
       },
     } as any),
