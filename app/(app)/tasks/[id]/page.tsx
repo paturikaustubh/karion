@@ -327,12 +327,12 @@ export default function TaskDetailPage({
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem
-                                className="text-destructive"
+                                className="text-destructive focus:bg-destructive/10 focus:text-destructive"
                                 onClick={() =>
                                   deleteComment(comment.taskCommentId)
                                 }
                               >
-                                <Trash className="mr-2 h-3.5 w-3.5" /> Delete
+                                <Trash className="mr-2 h-3.5 w-3.5 text-destructive" /> Delete
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
