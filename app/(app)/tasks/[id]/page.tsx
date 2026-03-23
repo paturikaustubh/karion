@@ -540,9 +540,12 @@ export default function TaskDetailPage({
               <Input
                 type="date"
                 value={dueDateValue}
-                onChange={(e) => {
-                  setDueDateValue(e.target.value);
-                  updateField("dueDate", e.target.value);
+                onChange={(e) => setDueDateValue(e.target.value)}
+                onBlur={(e) => {
+                  const val = e.target.value;
+                  if (val !== (task.dueDate ? task.dueDate.split("T")[0] : "")) {
+                    updateField("dueDate", val ? `${val}T00:00:00Z` : "");
+                  }
                 }}
                 className="h-7 text-xs"
               />
