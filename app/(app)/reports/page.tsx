@@ -11,6 +11,7 @@ import {
   SpinnerGap,
   Gear,
 } from "@phosphor-icons/react";
+import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -160,10 +161,14 @@ function ReportsContent() {
         }),
       });
       if (res.ok) {
+        toast.success("Report schedule saved");
         setConfigOpen(false);
+      } else {
+        toast.error("Failed to save schedule");
       }
     } catch (error) {
       console.error("Failed to save config:", error);
+      toast.error("Failed to save schedule");
     } finally {
       setSavingConfig(false);
     }
