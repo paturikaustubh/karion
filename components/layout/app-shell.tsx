@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTheme } from "next-themes";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -11,6 +11,9 @@ import { UserSettingsProvider } from "@/components/providers/user-settings-provi
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { setTheme } = useTheme();
+  const setThemeRef = useRef(setTheme);
+  setThemeRef.current = setTheme;
+
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [timeFormat, setTimeFormat] = useState<"12h" | "24h">("12h");
@@ -21,12 +24,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       .then((data) => {
         const settings = data.data ?? {};
         if (settings.sidebar_state === "collapsed") setSidebarOpen(false);
-        if (settings.theme) setTheme(settings.theme);
+        if (settings.theme) setThemeRef.current(settings.theme);
         if (settings.time_format === "24h") setTimeFormat("24h");
       })
       .catch(() => {})
       .finally(() => setSettingsLoaded(true));
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleOpenChange = (open: boolean) => {
     setSidebarOpen(open);
