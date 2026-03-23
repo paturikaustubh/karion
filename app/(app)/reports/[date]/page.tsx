@@ -137,14 +137,21 @@ export default function ReportDetailPage({
       {/* Report Content */}
       <Card>
         <CardContent className="">
-          <div className="prose prose-sm dark:prose-invert max-w-none
-              prose-headings:font-semibold prose-headings:tracking-tight
-              prose-h1:text-xl prose-h2:text-lg prose-h3:text-base
-              prose-p:text-sm prose-p:leading-relaxed
-              prose-li:text-sm prose-li:leading-relaxed
-              prose-strong:font-semibold
-              prose-code:text-xs prose-code:bg-muted prose-code:rounded prose-code:px-1 prose-code:py-0.5">
-            <ReactMarkdown>{report.content}</ReactMarkdown>
+          <div className="text-sm leading-relaxed">
+            <ReactMarkdown
+              components={{
+                h1: ({ children }) => <h1 className="text-xl font-bold mb-4 mt-2">{children}</h1>,
+                h2: ({ children }) => <h2 className="text-base font-semibold mb-3 mt-6 border-b border-border pb-1">{children}</h2>,
+                h3: ({ children }) => <h3 className="text-sm font-semibold mb-2 mt-4">{children}</h3>,
+                p: ({ children }) => <p className="mb-3 leading-relaxed">{children}</p>,
+                ul: ({ children }) => <ul className="list-disc list-outside ml-5 mb-3 space-y-1">{children}</ul>,
+                ol: ({ children }) => <ol className="list-decimal list-outside ml-5 mb-3 space-y-1">{children}</ol>,
+                li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+                strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+              }}
+            >
+              {report.content}
+            </ReactMarkdown>
           </div>
         </CardContent>
       </Card>
