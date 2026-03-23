@@ -116,6 +116,11 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+::selection {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+}
+
 :disabled {
   cursor: not-allowed !important;
   pointer-events: none !important;
