@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.6.0](https://github.com/paturikaustubh/karion/compare/karion-v0.5.0...karion-v0.6.0) (2026-03-23)
+
+
+### Features
+
+* add custom styles for text selection in globals.css ([fbad847](https://github.com/paturikaustubh/karion/commit/fbad847a0d585aaed43986f0ba9c284f58b4cdd4))
+* optimistically append new comment from POST response before GET refresh ([9c653a3](https://github.com/paturikaustubh/karion/commit/9c653a34721ce7d9b371372ef5ea1d820923b884))
+* split create button group, red cancel, ISO dueDate fix, form reset on close ([f750015](https://github.com/paturikaustubh/karion/commit/f750015bcf7f7c0f8317e22c923f5e9f9a0ee5e5))
+
+
+### Bug Fixes
+
+* comment textarea starts at input height with max-height cap ([a3fcf42](https://github.com/paturikaustubh/karion/commit/a3fcf4276eadcbc1047525a62de7de84e5bb7b74))
+* consistent destructive styling on comment delete menu item ([f4f53c0](https://github.com/paturikaustubh/karion/commit/f4f53c08f15ea970d0f4711835071a823884c473))
+* taks bugs fix ([6c4cd7a](https://github.com/paturikaustubh/karion/commit/6c4cd7ab0019a2d9fe1bb43fc843b65dc591eb9c))
+
 ## [0.5.0](https://github.com/paturikaustubh/karion/compare/karion-v0.4.0...karion-v0.5.0) (2026-03-23)
 
 
