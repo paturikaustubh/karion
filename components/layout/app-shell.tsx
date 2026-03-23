@@ -49,7 +49,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <SidebarInset className="flex flex-col min-h-0">
             <AppHeader />
             <div className="flex-1 overflow-auto">
-              <div className="p-6 pb-10">{children}</div>
+              <div className="p-6 pb-4">{children}</div>
             </div>
           </SidebarInset>
         </SidebarProvider>
