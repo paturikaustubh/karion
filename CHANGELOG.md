@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.6.1](https://github.com/paturikaustubh/karion/compare/karion-v0.6.0...karion-v0.6.1) (2026-03-23)
+
+
+### Bug Fixes
+
+* accept YYYY-MM-DD dueDate in task API, normalize to ISO datetime ([4430f92](https://github.com/paturikaustubh/karion/commit/4430f929b2228abf5b9a8b65710ec30616ea94d0))
+* call PATCH for dueDate on blur, not on every change ([f672265](https://github.com/paturikaustubh/karion/commit/f672265ecfb115f8c132da61224973ef80171fd2))
+* due date add and update for tasks fix ([f8cca43](https://github.com/paturikaustubh/karion/commit/f8cca4369af6435692e4b873edf88c4857e99eab))
+
 ## [0.6.0](https://github.com/paturikaustubh/karion/compare/karion-v0.5.0...karion-v0.6.0) (2026-03-23)
 
 
