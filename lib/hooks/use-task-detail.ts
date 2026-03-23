@@ -143,11 +143,15 @@ export function useTaskDetail(id: string) {
     if (!commentText.trim()) return;
     setSubmittingComment(true);
     try {
-      await apiFetch(`/api/tasks/${id}/comments`, {
+      const res = await apiFetch(`/api/tasks/${id}/comments`, {
         method: "POST",
         body: JSON.stringify({ comment: commentText.trim(), source: "web" }),
       });
+      const data = await res.json();
       setCommentText("");
+      if (data.data && task) {
+        setTask({ ...task, comments: [...task.comments, data.data] });
+      }
       fetchTask();
     } catch (error) {
       console.error("Failed to add comment:", error);
