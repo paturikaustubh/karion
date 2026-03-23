@@ -9,7 +9,8 @@ import {
   SpinnerGap,
   CalendarBlank,
 } from "@phosphor-icons/react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import ReactMarkdown from "react-markdown";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -136,27 +137,15 @@ export default function ReportDetailPage({
       {/* Report Content */}
       <Card>
         <CardContent className="">
-          <div
-            className="prose prose-sm dark:prose-invert max-w-none
+          <div className="prose prose-sm dark:prose-invert max-w-none
               prose-headings:font-semibold prose-headings:tracking-tight
               prose-h1:text-xl prose-h2:text-lg prose-h3:text-base
               prose-p:text-sm prose-p:leading-relaxed
               prose-li:text-sm prose-li:leading-relaxed
               prose-strong:font-semibold
-              prose-code:text-xs prose-code:bg-muted prose-code:rounded prose-code:px-1 prose-code:py-0.5"
-            dangerouslySetInnerHTML={{
-              __html: report.content
-                .replace(/^### (.*$)/gm, "<h3>$1</h3>")
-                .replace(/^## (.*$)/gm, "<h2>$1</h2>")
-                .replace(/^# (.*$)/gm, "<h1>$1</h1>")
-                .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-                .replace(/\*(.*?)\*/g, "<em>$1</em>")
-                .replace(/^- (.*$)/gm, "<li>$1</li>")
-                .replace(/(<li>[\s\S]*<\/li>)/, "<ul>$1</ul>")
-                .replace(/\n\n/g, "</p><p>")
-                .replace(/\n/g, "<br>"),
-            }}
-          />
+              prose-code:text-xs prose-code:bg-muted prose-code:rounded prose-code:px-1 prose-code:py-0.5">
+            <ReactMarkdown>{report.content}</ReactMarkdown>
+          </div>
         </CardContent>
       </Card>
     </div>
