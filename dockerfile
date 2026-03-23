@@ -1,3 +1,12 @@
+# PULL node 24 IMAGE
+# docker pull node:24-alpine
+
+# START THE NODE
+# docker run -it --rm -v .:/app -w /app node:24-alpine sh
+
+# START THE SERVER WITH THE DOCKER COMPOSE FILE
+# docker compose watch
+
 FROM node:24-alpine
 
 WORKDIR /app
