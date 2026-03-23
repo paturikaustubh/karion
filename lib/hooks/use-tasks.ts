@@ -129,10 +129,18 @@ export function useTasks() {
   };
 
   const handleStatusChange = async (taskId: string, status: string) => {
-    await apiFetch(`/api/tasks/${taskId}`, {
+    const res = await apiFetch(`/api/tasks/${taskId}`, {
       method: "PATCH",
       body: JSON.stringify({ status }),
     });
+    const data = await res.json();
+    if (data.data) {
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.taskId === taskId ? { ...t, taskStatus: data.data.taskStatus } : t,
+        ),
+      );
+    }
     fetchTasks();
     fetchActiveSessions();
   };
@@ -159,14 +167,24 @@ export function useTasks() {
     e.stopPropagation();
     const sessionId = activeSessions.get(taskId)?.sessionId;
     if (!sessionId) return;
-    await apiFetch(`/api/tasks/${taskId}/time-sessions/${sessionId}`, {
+    const res = await apiFetch(`/api/tasks/${taskId}/time-sessions/${sessionId}`, {
       method: "PATCH",
     });
+    const data = await res.json();
     setActiveSessions((prev) => {
       const next = new Map(prev);
       next.delete(taskId);
       return next;
     });
+    if (data.data?.duration != null) {
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.taskId === taskId
+            ? { ...t, totalWorkTime: t.totalWorkTime + data.data.duration }
+            : t,
+        ),
+      );
+    }
     fetchTasks();
   };
 
