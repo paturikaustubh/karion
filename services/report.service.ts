@@ -6,9 +6,10 @@ import { extractPipelineData } from "./report-pipeline";
 import { generateReportProse } from "./report-ai";
 import { assembleReport } from "./report-template";
 
-export async function generateReport(dateStr: string, userId: number) {
-  const startOfDay = new Date(dateStr + "T00:00:00.000Z");
-  const endOfDay = new Date(dateStr + "T23:59:59.999Z");
+export async function generateReport(startTime: string, endTime: string, userId: number) {
+  const startOfDay = new Date(startTime);
+  const endOfDay = new Date(endTime);
+  const dateStr = startTime.split("T")[0];
 
   const tasks = await taskData.findMany(
     {
@@ -74,19 +75,23 @@ export async function generateReport(dateStr: string, userId: number) {
   structuredData.tasksCompleted = structuredData.tasks.filter((t) => t.statusName === "completed").length;
 
   // Three-phase pipeline
-  const pipeline = extractPipelineData(dateStr, tasks);
+  const pipeline = extractPipelineData(startTime, tasks);
   const prose = await generateReportProse(pipeline);
-  const content = assembleReport(dateStr, pipeline, prose);
+  const content = assembleReport(startTime, pipeline, prose);
+
+  const reportDate = new Date(dateStr + "T00:00:00.000Z");
 
   const report = await reportData.upsert(
-    { reportDate: startOfDay },
+    { reportDate },
     {
-      reportDate: startOfDay,
+      reportDate,
+      startTime: startOfDay,
+      endTime: endOfDay,
       content,
       structuredData: structuredData as any,
       creator: { connect: { id: userId } },
     },
-    { content, structuredData: structuredData as any, generatedAt: new Date() }
+    { content, structuredData: structuredData as any, startTime: startOfDay, endTime: endOfDay, generatedAt: new Date() }
   );
 
   await logActivity("report_generated", `Daily report generated for ${dateStr}`, userId);

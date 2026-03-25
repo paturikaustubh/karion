@@ -35,6 +35,8 @@ import {
 import { cn } from "@/lib/utils";
 import { useUserSettings } from "@/components/providers/user-settings-provider";
 import { formatDateTime } from "@/lib/time-utils";
+import { DateTimePicker } from "@/components/ui/datetime-picker";
+import { getCurrentShift } from "@/lib/shift-utils";
 
 interface ReportItem {
   reportDate: string;
@@ -79,13 +81,14 @@ function ReportsContent() {
   const [generateOpen, setGenerateOpen] = useState(
     searchParams.get("action") === "generate",
   );
-  const [dateInput, setDateInput] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [startTime, setStartTime] = useState<Date | undefined>(undefined);
+  const [endTime, setEndTime] = useState<Date | undefined>(undefined);
   const [generating, setGenerating] = useState(false);
 
   // Configuration state
   const [configOpen, setConfigOpen] = useState(false);
   const [configLoaded, setConfigLoaded] = useState(false);
-  const { timeFormat } = useUserSettings();
+  const { timeFormat, checkInTime, setCheckInDialogOpen } = useUserSettings();
   const [config, setConfig] = useState<ReportConfig>({
     frequency: "weekly",
     scheduledTime: "09:00",
@@ -131,12 +134,15 @@ function ReportsContent() {
   }, [fetchReports, fetchConfig]);
 
   const handleGenerate = async () => {
-    if (!dateInput) return;
+    if (!startTime || !endTime) return;
     setGenerating(true);
     try {
       const res = await apiFetch("/api/reports", {
         method: "POST",
-        body: JSON.stringify({ date: dateInput }),
+        body: JSON.stringify({
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+        }),
       });
       if (res.ok) {
         setGenerateOpen(false);
@@ -313,7 +319,17 @@ function ReportsContent() {
             </DialogContent>
           </Dialog>
 
-          <Dialog open={generateOpen} onOpenChange={setGenerateOpen}>
+          <Dialog
+            open={generateOpen}
+            onOpenChange={(open) => {
+              if (open) {
+                const { start, end } = getCurrentShift(checkInTime ?? "09:00", new Date());
+                setStartTime(start);
+                setEndTime(end);
+              }
+              setGenerateOpen(open);
+            }}
+          >
             <DialogTrigger asChild>
               <Button size="sm">
                 <Plus className="mr-1.5" /> Generate Report
@@ -325,17 +341,39 @@ function ReportsContent() {
               </DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="report-date">Target Date</Label>
-                  <Input
-                    id="report-date"
-                    type="date"
-                    value={dateInput}
-                    onChange={(e) => setDateInput(e.target.value)}
+                  <Label>From</Label>
+                  <DateTimePicker
+                    value={startTime}
+                    onChange={setStartTime}
+                    placeholder="Shift start"
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label>To</Label>
+                  <DateTimePicker
+                    value={endTime}
+                    onChange={setEndTime}
+                    placeholder="Shift end"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Start time defaults to your check-in time (
+                  {startTime?.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) ?? "—"}
+                  ).{" "}
+                  <button
+                    type="button"
+                    className="underline underline-offset-2 hover:text-foreground transition-colors"
+                    onClick={() => {
+                      setGenerateOpen(false);
+                      setCheckInDialogOpen(true);
+                    }}
+                  >
+                    Change in Profile settings.
+                  </button>
+                </p>
                 <Button
                   onClick={handleGenerate}
-                  disabled={generating || !dateInput}
+                  disabled={generating || !startTime || !endTime}
                   className="w-full"
                 >
                   {generating ? (

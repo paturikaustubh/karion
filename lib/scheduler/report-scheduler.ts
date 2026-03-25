@@ -1,6 +1,7 @@
-import { format } from "date-fns";
 import { reportConfigData } from "@/lib/data/report-config.data";
+import { userSettingsData } from "@/lib/data/user-settings.data";
 import { generateReport } from "@/services/report.service";
+import { getCurrentShift } from "@/lib/shift-utils";
 
 type ReportConfig = {
   reportConfigId: string;
@@ -45,7 +46,7 @@ export async function runScheduledReports(): Promise<{
     isActive: true,
   });
 
-  const todayStr = format(new Date(), "yyyy-MM-dd");
+  const now = new Date();
   let generated = 0;
   let errors = 0;
 
@@ -59,7 +60,12 @@ export async function runScheduledReports(): Promise<{
     };
     if (!shouldRunNow(cfg)) continue;
     try {
-      await generateReport(todayStr, config.createdBy);
+      const userSettings = await userSettingsData.find(config.createdBy);
+      const checkInTime =
+        (userSettings?.settings as Record<string, unknown> | null)?.check_in_time as string | undefined
+        ?? "09:00";
+      const { start, end } = getCurrentShift(checkInTime, now);
+      await generateReport(start.toISOString(), end.toISOString(), config.createdBy);
       generated++;
     } catch {
       errors++;

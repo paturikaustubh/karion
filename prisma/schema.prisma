@@ -170,8 +170,10 @@ model Report {
   id             Int      @id @default(autoincrement())
   reportId       String   @unique @default(uuid())
   reportDate     DateTime @unique @db.Date
-  content        String   // AI-generated markdown
-  structuredData Json?    // raw data snapshot passed to AI, useful for regeneration
+  startTime      DateTime
+  endTime        DateTime
+  content        String
+  structuredData Json?
   generatedAt    DateTime @default(now())
   createdBy      Int
   createdAt      DateTime @default(now())
