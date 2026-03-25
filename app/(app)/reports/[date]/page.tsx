@@ -24,6 +24,8 @@ import { useUserSettings } from "@/components/providers/user-settings-provider";
 interface Report {
   id: string;
   reportDate: string;
+  startTime: string;
+  endTime: string;
   content: string;
   generatedAt: string;
 }
@@ -69,7 +71,10 @@ export default function ReportDetailPage({
     try {
       await apiFetch("/api/reports", {
         method: "POST",
-        body: JSON.stringify({ date }),
+        body: JSON.stringify({
+          startTime: report!.startTime,
+          endTime: report!.endTime,
+        }),
       });
       fetchReport();
     } catch (error) {
