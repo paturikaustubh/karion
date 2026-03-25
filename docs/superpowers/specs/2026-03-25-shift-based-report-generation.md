@@ -109,7 +109,11 @@ Logic:
 
 Signature change: replaces `generateReport(dateStr, userId)`.
 
-Task query uses `startTime` and `endTime` directly as the time window boundaries (replacing hardcoded `T00:00:00.000Z` / `T23:59:59.999Z`).
+- Task query uses `startTime` and `endTime` directly as the time window boundaries (replacing hardcoded `T00:00:00.000Z` / `T23:59:59.999Z`).
+- `reportDate` derived from `startTime`'s UTC calendar date.
+- Calls `extractPipelineData(startTime, tasks)` and `assembleReport(startTime, pipeline, prose)` — downstream signatures updated accordingly.
+- `extractPipelineData(startTime, tasks)`: first arg was `dateStr`, now `startTime` (ISO string). `reportDate` and `dayName` derived from `startTime`.
+- `assembleReport(startTime, pipeline, prose)`: first arg was `dateStr`, now `startTime` (ISO string). Report title date derived from `startTime`.
 
 ### `GET /api/cron/reports`
 
@@ -184,10 +188,12 @@ Reusable component built on shadcn primitives:
 | `components/ui/datetime-picker.tsx` | New — reusable DateTimePicker component |
 | `components/providers/user-settings-provider.tsx` | Add `checkInTime` + setter |
 | `components/layout/app-sidebar.tsx` | Check-in time menu item + dialog |
-| `services/report.service.ts` | `generateReport(startTime, endTime, userId)` |
-| `services/report-pipeline.ts` | Update task query to use `startTime`/`endTime` |
+| `services/report.service.ts` | `generateReport(startTime, endTime, userId)` — task query uses `startTime`/`endTime` directly; derives `reportDate` from `startTime` |
+| `services/report-pipeline.ts` | `extractPipelineData(startTime, tasks)` — first arg changes from `dateStr` to `startTime` ISO string; `reportDate` and `dayName` derived from `startTime` |
+| `services/report-template.ts` | `assembleReport(startTime, pipeline, prose)` — first arg changes from `dateStr` to `startTime` ISO string for report title derivation |
 | `app/api/reports/route.ts` | Accept `{ startTime, endTime }` |
 | `lib/scheduler/report-scheduler.ts` | Use `getCurrentShift` per user |
+| `components/layout/app-shell.tsx` | Load `check_in_time` from settings and pass `checkInTime` to `UserSettingsProvider` |
 | `app/(app)/reports/page.tsx` | Dialog: two DateTimePickers + info note |
 
 ---
