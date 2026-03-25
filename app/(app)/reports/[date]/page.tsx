@@ -12,6 +12,7 @@ import {
   Check,
 } from "@phosphor-icons/react";
 import ReactMarkdown from "react-markdown";
+import { marked } from "marked";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -59,8 +60,19 @@ export default function ReportDetailPage({
     fetchReport();
   }, [fetchReport]);
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(report?.content ?? "");
+  const handleCopy = async () => {
+    const markdown = report?.content ?? "";
+    const html = await marked(markdown);
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          "text/html": new Blob([html], { type: "text/html" }),
+          "text/plain": new Blob([markdown], { type: "text/plain" }),
+        }),
+      ]);
+    } catch {
+      await navigator.clipboard.writeText(markdown);
+    }
     setCopied(true);
     toast.info("Copied to clipboard");
     setTimeout(() => setCopied(false), 1500);
