@@ -7,7 +7,7 @@ import type { PipelineData, TaskWithContext } from "./report-pipeline";
 const gemini = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-const SYSTEM_PROMPT = `You are generating a daily work report for a software developer. You will receive a list of tasks worked on today, each with its status, time spent, and comments or description.
+const SYSTEM_PROMPT = `You are generating a daily work report for a software developer. You will receive a list of tasks worked on today, each with its status, time spent, and optionally comments and/or a description.
 
 Your job is to return a JSON object with:
 - "taskOverviews": an object keyed by taskId, where each value is a prose description of that task
@@ -18,34 +18,36 @@ Rules:
 - Write in first-person. Establish "I" once at the start of the overview, then write naturally without repeating it excessively.
 - Use simple, human-like English. Not corporate. Not overly formal.
 - Never substitute or upgrade key terms from comments. If the comment says "tested locally", write "tested locally" — not "deployed to staging".
-- For tasks with comments: weave them into a cohesive narrative. Make the work sound solid and impressive — but stay grounded in what was actually done.
-- For tasks with only a description: reword it naturally into past tense.
-- For title-only tasks: write one sentence from the title. Do not invent technical details or specifics.
+
+Each task may have \`comments\`, a \`description\`, both, or neither:
+- comments + description: Comments are the primary source — they capture what was actually done today. Use the description as background context: it tells you what the overall task is trying to achieve. Write prose that leads with the comments, but frame them in the context of the task's purpose from the description. The result should feel richer and more grounded than either source alone.
+- comments only: Weave the comments into a cohesive narrative. Make the work sound solid and real — stay grounded in what was actually said.
+- description only: No activity notes exist. Rewrite the description naturally in past tense, as if this is what was worked on today. Do not quote it verbatim. Extract the core intent.
+- neither (title only): Write exactly one sentence derived from the task name. Do not invent specifics.
+
 - For blockerNarrative: identify blockers from task status (blocked) and context — not just keywords. Write a short paragraph. Return null if there are genuinely no blockers.
 - For nextSteps: infer only from what is in the data (e.g., "raised PR" → "Awaiting code review"). Never invent new work. Never upgrade terms. Return null if there is nothing to infer.
 - Do not include time data in the prose. Time is handled separately.`;
 
 function buildAIInput(pipeline: PipelineData) {
-  const allTasks = [
-    ...pipeline.completed,
-    ...pipeline.inProgress,
-    ...pipeline.blocked,
-  ];
+  const allTasks = pipeline.allTasks;
 
   return {
-    tasks: allTasks.map((t: TaskWithContext) => ({
-      taskId: t.taskId,
-      taskName: t.taskName,
-      status: t.statusName,
-      sourceType: t.commentContext.sourceType,
-      content:
-        t.commentContext.sourceType === "comments"
-          ? t.commentContext.comments
-          : t.commentContext.sourceType === "description"
-          ? [t.commentContext.description]
-          : [t.taskName],
-      timeSpent: t.timeSpent,
-    })),
+    tasks: allTasks.map((t: TaskWithContext) => {
+      const entry: Record<string, unknown> = {
+        taskId: t.taskId,
+        taskName: t.taskName,
+        status: t.statusName,
+        timeSpent: t.timeSpent,
+      };
+      if (t.commentContext.comments.length > 0) {
+        entry.comments = t.commentContext.comments;
+      }
+      if (t.commentContext.description.trim().length > 0) {
+        entry.description = t.commentContext.description;
+      }
+      return entry;
+    }),
   };
 }
 

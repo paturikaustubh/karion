@@ -113,8 +113,6 @@ export function useTaskDetail(id: string) {
   useEffect(() => {
     fetchTask();
     fetchActivities(1);
-    const interval = setInterval(fetchTask, 15000);
-    return () => clearInterval(interval);
   }, [fetchTask, fetchActivities]);
 
   const updateField = async (field: string, value: string) => {

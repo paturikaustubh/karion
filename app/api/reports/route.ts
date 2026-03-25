@@ -5,7 +5,13 @@ import { ok, err } from "@/lib/response";
 import { sanitize } from "@/lib/sanitize";
 import { z } from "zod";
 
-const generateReportSchema = z.object({ date: z.string() });
+const generateReportSchema = z.object({
+  startTime: z.string(),
+  endTime: z.string(),
+}).refine((d) => new Date(d.startTime) < new Date(d.endTime), {
+  message: "startTime must be before endTime",
+  path: ["startTime"],
+});
 
 export async function GET(request: NextRequest) {
   try {
@@ -24,13 +30,13 @@ export async function POST(request: NextRequest) {
     const auth = await authenticateRequest(request);
     if (auth instanceof NextResponse) return auth;
     const body = await request.json();
-    const input = generateReportSchema.parse(body);
-    const report = await generateReport(input.date, auth.userId);
+    const result = generateReportSchema.safeParse(body);
+    if (!result.success) {
+      return err(result.error.issues[0]?.message ?? "Invalid input", String(result.error), 400);
+    }
+    const report = await generateReport(result.data.startTime, result.data.endTime, auth.userId);
     return ok("Report generated", sanitize(report), 201);
   } catch (error) {
-    if (error instanceof Error && error.name === "ZodError") {
-      return err("Invalid date format", String(error), 400);
-    }
     console.error("POST /api/reports error:", error);
     return err("Failed to generate report", String(error));
   }

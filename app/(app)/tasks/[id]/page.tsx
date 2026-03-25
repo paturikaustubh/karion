@@ -1,6 +1,6 @@
 "use client";
 
-import { use } from "react";
+import { use, useRef } from "react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import {
@@ -153,6 +153,8 @@ export default function TaskDetailPage({
     stopTimer,
     deleteTask,
   } = useTaskDetail(id);
+
+  const dueDateSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const activeSession =
     task?.timeSessions?.find((s) => s.activeSession) ?? null;
@@ -541,11 +543,20 @@ export default function TaskDetailPage({
                 type="date"
                 value={dueDateValue}
                 onChange={(e) => setDueDateValue(e.target.value)}
+                onFocus={() => {
+                  if (dueDateSaveTimer.current) {
+                    clearTimeout(dueDateSaveTimer.current);
+                    dueDateSaveTimer.current = null;
+                  }
+                }}
                 onBlur={(e) => {
                   const val = e.target.value;
-                  if (val !== (task.dueDate ? task.dueDate.split("T")[0] : "")) {
-                    updateField("dueDate", val ? `${val}T00:00:00Z` : "");
-                  }
+                  dueDateSaveTimer.current = setTimeout(() => {
+                    dueDateSaveTimer.current = null;
+                    if (val !== (task.dueDate ? task.dueDate.split("T")[0] : "")) {
+                      updateField("dueDate", val ? `${val}T00:00:00Z` : "");
+                    }
+                  }, 200);
                 }}
                 className="h-7 text-xs"
               />
