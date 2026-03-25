@@ -14,7 +14,7 @@ function buildOverviewIntro(pipeline: PipelineData): string {
 
 function buildOverviewSection(pipeline: PipelineData, prose: ReportProse | null): string {
   const intro = buildOverviewIntro(pipeline);
-  const allTasks = [...pipeline.completed, ...pipeline.inProgress, ...pipeline.blocked];
+  const allTasks = pipeline.allTasks;
 
   if (allTasks.length === 0) return `## Overview\n\n${intro}`;
 
@@ -53,11 +53,11 @@ function buildNextStepsSection(prose: ReportProse | null): string | null {
 }
 
 export function assembleReport(
-  dateStr: string,
+  startTime: string,
   pipeline: PipelineData,
   prose: ReportProse | null
 ): string {
-  const dateObj = new Date(dateStr + "T12:00:00Z");
+  const dateObj = new Date(startTime);
   const dateLabel = format(dateObj, "d MMM, yyyy");
   const dayName = format(dateObj, "EEE");
 
