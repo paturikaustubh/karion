@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.7.0](https://github.com/paturikaustubh/karion/compare/karion-v0.6.1...karion-v0.7.0) (2026-03-25)
+
+
+### Features
+
+* report on specific date time period with check in time as a setting ([2757f5a](https://github.com/paturikaustubh/karion/commit/2757f5a232422177487445d70575984728619027))
+* report on specific date time period with check in time as a setting ([2757f5a](https://github.com/paturikaustubh/karion/commit/2757f5a232422177487445d70575984728619027))
+* report on specific date time period with check in time as a setting ([2fc6059](https://github.com/paturikaustubh/karion/commit/2fc6059f0ec781bb18b03340b93ee46a33b17888))
+
 ## [0.6.1](https://github.com/paturikaustubh/karion/compare/karion-v0.6.0...karion-v0.6.1) (2026-03-23)
 
 
