@@ -17,6 +17,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [timeFormat, setTimeFormat] = useState<"12h" | "24h">("12h");
+  const [checkInTime, setCheckInTime] = useState<string>("09:00");
 
   useEffect(() => {
     apiFetch("/api/user/settings")
@@ -26,6 +27,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         if (settings.sidebar_state === "collapsed") setSidebarOpen(false);
         if (settings.theme) setThemeRef.current(settings.theme);
         if (settings.time_format === "24h") setTimeFormat("24h");
+        if (settings.check_in_time) setCheckInTime(settings.check_in_time);
       })
       .catch(() => {})
       .finally(() => setSettingsLoaded(true));
@@ -46,7 +48,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <TooltipProvider>
-      <UserSettingsProvider initialTimeFormat={timeFormat}>
+      <UserSettingsProvider initialTimeFormat={timeFormat} initialCheckInTime={checkInTime}>
         <SidebarProvider open={sidebarOpen} onOpenChange={handleOpenChange}>
           <AppSidebar />
           <SidebarInset className="flex flex-col min-h-0">
