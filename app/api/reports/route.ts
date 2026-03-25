@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const result = generateReportSchema.safeParse(body);
     if (!result.success) {
-      return err(result.error.errors[0]?.message ?? "Invalid input", String(result.error), 400);
+      return err(result.error.issues[0]?.message ?? "Invalid input", String(result.error), 400);
     }
     const report = await generateReport(result.data.startTime, result.data.endTime, auth.userId);
     return ok("Report generated", sanitize(report), 201);

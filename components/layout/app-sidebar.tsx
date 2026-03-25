@@ -14,7 +14,6 @@ import {
   Moon,
   SignOut,
   Clock,
-  AlarmCheck,
 } from "@phosphor-icons/react";
 import {
   Sidebar,
@@ -179,7 +178,7 @@ function UserAvatar() {
               {timeFormat === "12h" ? "Switch to 24hr" : "Switch to 12hr"}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleCheckInOpenChange(true)}>
-              <AlarmCheck className="size-4" />
+              <Clock className="size-4" />
               <span>
                 Check-in:{" "}
                 {(() => {
